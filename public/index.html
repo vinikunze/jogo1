@@ -495,23 +495,23 @@ function addLayers(){
   map.addSource('fx',{type:'geojson',data:EMPTY});
   const before=['building','road_area_pier','highway_path','highway_minor'].find(id=>map.getLayer(id));
   map.addLayer({id:'tf',type:'fill',source:'terr',paint:{'fill-color':['coalesce',['feature-state','c'],'#101216'],'fill-opacity':['coalesce',['feature-state','a'],.3]}},before);
-  map.addLayer({id:'tl',type:'line',source:'terr',paint:{'line-color':'rgba(2,3,5,.9)','line-width':['interpolate',['linear'],['zoom'],9,.7,14,1.8]}});
+  map.addLayer({id:'tl',type:'line',source:'terr',paint:{'line-color':'rgba(247,220,142,.26)','line-width':['interpolate',['linear'],['zoom'],9,.6,14,1.6]}});
   map.addLayer({id:'tfr',type:'line',source:'terr',filter:['in',['id'],['literal',[]]],paint:{'line-color':'#f8e09a','line-width':['interpolate',['linear'],['zoom'],9,1.2,14,2.6],'line-dasharray':[2,1.6]}});
   map.addLayer({id:'tsel',type:'line',source:'terr',filter:['==',['id'],-1],paint:{'line-color':'#ffffff','line-width':3}});
   map.addLayer({id:'links',type:'line',source:'links',paint:{'line-color':'rgba(247,220,142,.6)','line-width':1.6,'line-dasharray':[2,2]}});
   map.addLayer({id:'fx',type:'line',source:'fx',layout:{'line-cap':'round'},paint:{'line-color':'#f8e09a','line-width':4.5,'line-opacity':.95}});
-  map.addLayer({id:'names',type:'symbol',source:'ptn',layout:{'text-field':['get','n'],'text-font':['Noto Sans Regular'],'text-size':['interpolate',['linear'],['zoom'],9,10,13,12.5,16,15],'text-anchor':'top','text-offset':[0,1.15],'text-max-width':8,'symbol-sort-key':['get','ka']},paint:{'text-color':'rgba(241,236,226,.88)','text-halo-color':'rgba(5,7,10,.95)','text-halo-width':1.6}});
+  map.addLayer({id:'names',type:'symbol',source:'ptn',layout:{'text-field':['get','n'],'text-font':['Noto Sans Regular'],'text-size':['interpolate',['linear'],['zoom'],9,10,13,12.5,16,15],'text-anchor':'top','text-offset':[0,1.55],'text-max-width':8,'symbol-sort-key':['get','ka']},paint:{'text-color':'rgba(241,236,226,.88)','text-halo-color':'rgba(5,7,10,.95)','text-halo-width':1.6}});
   map.addLayer({id:'badges',type:'symbol',source:'pts',filter:['!=',['get','ic'],''],layout:{'icon-image':['get','ic'],'symbol-sort-key':['get','k'],'icon-padding':1}});
 }
 function makeBadge(id){
   if(!id.startsWith('bd|')||map.hasImage(id))return;
-  const[,col,f,base,s,txt,tc]=id.split('|'),r=2,S=40*r,cv=document.createElement('canvas');cv.width=S;cv.height=S;
+  const[,col,f,base,s,txt,tc]=id.split('|'),r=2,S=36*r,cv=document.createElement('canvas');cv.width=S;cv.height=S;
   const x=cv.getContext('2d'),c=S/2;
-  if(s==='1'){x.beginPath();x.arc(c,c,16*r,0,7);x.fillStyle='rgba(255,255,255,.28)';x.fill()}
+  if(s==='1'){x.beginPath();x.arc(c,c,15.5*r,0,7);x.fillStyle='rgba(255,255,255,.28)';x.fill()}
   x.beginPath();x.arc(c,c,11*r,0,7);x.fillStyle='#0a0b0e';x.fill();x.lineWidth=2.6*r;x.strokeStyle=col;x.stroke();
   x.fillStyle='#f8e09a';
-  for(let k=0;k<+f;k++){x.beginPath();x.roundRect?x.roundRect(c+8*r+k*6*r,c-15*r,5*r,7*r,1.5*r):x.rect(c+8*r+k*6*r,c-15*r,5*r,7*r);x.fill()}
-  if(base==='1'){x.beginPath();x.moveTo(c-7*r,c-12*r);x.lineTo(c,c-19*r);x.lineTo(c+7*r,c-12*r);x.closePath();x.fill()}
+  for(let k=0;k<+f;k++){x.beginPath();x.roundRect?x.roundRect(c+7*r+k*5*r,c-15*r,4*r,7*r,1.5*r):x.rect(c+7*r+k*5*r,c-15*r,4*r,7*r);x.fill()}
+  if(base==='1'){x.beginPath();x.moveTo(c-6*r,c-12*r);x.lineTo(c,c-17*r);x.lineTo(c+6*r,c-12*r);x.closePath();x.fill()}
   x.fillStyle=tc||'#fff';x.textAlign='center';x.textBaseline='middle';x.font=`700 ${(txt.length>2?11:13)*r}px 'Barlow Condensed',Barlow,Arial,sans-serif`;x.fillText(txt,c,c+.5*r);
   map.addImage(id,{width:S,height:S,data:x.getImageData(0,0,S,S).data},{pixelRatio:r});
 }
