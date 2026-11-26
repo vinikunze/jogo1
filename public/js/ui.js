@@ -68,11 +68,12 @@ S.on = {
   },
   rankup: (r, u) => dialog(`<h2 style="color:var(--g1)">Promovido: ${esc(S.MD.ranks[r])}</h2><p class="note">Você subiu de cargo e ganhou 1 ponto de habilidade.</p><ul class="rep"><li><span>Liberado</span><b style="color:var(--ok)">${esc(u.label)}</b></li></ul><div class="row"><button class="ghost btn" data-g="close">Fechar</button><button class="gold btn" data-g="career">Ver carreira</button></div>`),
   ach: a => { result('Conquista', `${a.name}: ${a.desc}`, 'good'); sfx.win(); },
+  jail: days => dialog(`<h2 style="color:var(--bad)">${S.MD.budget ? 'Afastado do comando' : 'Você foi preso'}</h2><p class="note">${S.MD.budget ? 'A corregedoria te afastou' : 'A operação te pegou'} por ${days} dias. Enquanto isso o seu braço direito comanda os ataques. Pelo celular você ainda fala com todo mundo, compra e vende. O advogado pode cortar o tempo pela metade.</p><button class="gold btn" data-g="close">Entendi</button>`),
   cityEvent: c => dialog(`<h2 style="color:var(--g1)">${esc(c.name)}</h2><p class="note">${esc(c.text)}</p><p class="note">Vale até o dia ${c.until}.</p><button class="gold btn" data-g="close">Entendi</button>`),
   over: k => {
     const win = k === 'win'; win ? sfx.win() : sfx.lose();
     dialog(`<h2 style="color:${win ? 'var(--g1)' : 'var(--bad)'}">${win ? 'A cidade é sua' : 'Fim da linha'}</h2><p class="note">${esc(S.G.why)}</p>
-      <ul class="rep"><li><span>Cargo final</span><b>${esc(rankName())}</b></li><li><span>Zonas tomadas</span><b>${S.G.stats.won}</b></li><li><span>Conquistas</span><b>${Object.keys(S.G.ach).length} de ${ACH.length}</b></li></ul>
+      <ul class="rep"><li><span>Cargo final</span><b>${esc(rankName())}</b></li><li><span>Zonas tomadas</span><b>${S.G.stats.won}</b></li><li><span>Conquistas</span><b>${Object.keys(S.G.ach).length} de ${ACH.length}</b></li><li><span>Pontuação</span><b style="color:var(--g1)">${S.G.score || 0}</b></li></ul>
       <button class="gold btn" data-g="menu">Voltar ao menu</button>`);
   },
 };
@@ -89,6 +90,7 @@ function renderHUD() {
   <div class="stat"><small>Fuzis · pistolas</small><strong>${g.rif} · ${g.pis}</strong></div>
   <div class="stat"><small>${S.MD.heat}</small><div class="bar"><i style="width:${g.heat}%;background:${hc}"></i></div></div>
   <div class="stat"><small>Domínio ${share}%</small><div class="bar"><i style="width:${Math.min(100, share / goal)}%;background:var(--gold)"></i></div></div>
+  ${E.jailed() ? `<div class="stat"><small>${S.MD.budget ? 'Afastado' : 'Preso'}</small><strong style="color:var(--bad)">até o dia ${g.jail.until}</strong></div>` : ''}
   ${g.cev && g.cev.until >= g.day ? `<div class="stat"><small>Evento</small><strong style="color:var(--g1)">${esc(g.cev.name)} · ${g.cev.until - g.day + 1}d</strong></div>` : ''}
   <div class="stat"><small>Ações</small><div class="dots">${Array.from({ length: maxActs() }, (_, k) => `<i class="${k < g.acts ? 'on' : ''}"></i>`).join('')}</div></div>`}</div>
   ${ph ? '' : `<button class="hbtn phone ${ur ? 'pulse' : ''}" data-g="phone" aria-label="Celular">${I.phone}${ur ? `<span class="badge">${ur}</span>` : ''}</button>`}
@@ -130,6 +132,12 @@ function baseInfo(i) {
     <ul class="rep" style="margin:0 0 12px"><li><span>Arrecadação estimada</span><b>${fmt(tax)}</b></li><li><span>Lucro de ${esc(g0.name.toLowerCase())} ${S.MD.shopIn}</span><b>~${fmt(sale)}</b></li>
     ${near.length ? near.map(r => `<li><span><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${r.F.color};margin-right:6px"></i>${esc(r.F.name)} ${r.dist === 1 ? 'é vizinho' : 'está a 2 zonas'}</span><b style="color:${str[r.F.str]}">${r.F.str}</b></li>`).join('') : '<li><span>Nenhum rival por perto</span><b style="color:var(--ok)">tranquilo</b></li>'}</ul>`;
 }
+function jailCard() {
+  if (!E.jailed()) return '';
+  const g = S.G;
+  return `<div class="career" style="background:rgba(255,91,79,.08);border-color:rgba(255,91,79,.35)"><small class="note">${S.MD.budget ? 'Afastado' : 'Preso'} até o dia ${g.jail.until}</small><br><strong style="font-size:17px">Seu braço direito comanda os ataques. Você segue no celular.</strong>
+    <button class="ghost btn act" data-a="lawyer" style="margin:10px 0 0" ${g.money >= 5000 ? '' : 'disabled'}><span>Pagar o advogado<small>Corta o tempo pela metade</small></span><em>${fmt(5000)}</em></button></div>`;
+}
 function objCard() {
   const o = ST.objProgress(); if (!o) return '';
   const left = o.until - S.G.day;
@@ -156,12 +164,12 @@ function tabZone() {
   if (g.phase === 'setup') return tabSetup();
   if (S.sel == null) {
     const t = targets(), ur = unread();
-    return careerCard() + objCard() + (ur ? `<button class="gold btn act" data-g="phone"><span>${ur} mensage${ur > 1 ? 'ns' : 'm'} no celular</span><em>abrir</em></button>` : '') +
+    return jailCard() + careerCard() + objCard() + (ur ? `<button class="gold btn act" data-g="phone"><span>${ur} mensage${ur > 1 ? 'ns' : 'm'} no celular</span><em>abrir</em></button>` : '') +
       (can('attack') ? `<h4>Alvos ao seu alcance</h4><div class="tgt">${t.length ? t.map(([i, r]) => { const [o, c] = odds(r); return `<button class="ghost" data-sel="${i}"><b>${esc(S.M.z[i].n)}</b><span style="color:${c}">${visible(i) ? o : o + '?'}</span></button>`; }).join('') : '<p class="note">Nenhum alvo por enquanto.</p>'}</div>`
         : `<h4>Sua missão</h4><p class="note">Como ${esc(rankName())}, quem decide os ataques é o chefe. Cumpra as missões do celular para ganhar respeito e subir de cargo. Toque numa zona para ver detalhes.</p>${lockBox('attack')}`);
   }
   const i = S.sel, d = g.d[i], mine = d.o === 0, c = colorOf(d.o), vis = visible(i), [lo, hi] = est(i);
-  let h = `<h2>${esc(S.M.z[i].n)}</h2><p class="sub"><span>${ZT[S.M.type[i]].label}</span><span class="own"><i style="background:${c}"></i>${esc(oname(d.o))}</span>${i === g.base ? '<span class="chip">Sua base</span>' : ''}${truceWith(d.o) ? `<span class="chip">Trégua até o dia ${g.f[d.o - 1].truce}</span>` : ''}</p>`;
+  let h = `<h2>${esc(S.M.z[i].n)}</h2><p class="sub"><span>${ZT[S.M.type[i]].label}</span><span class="own"><i style="background:${c}"></i>${esc(oname(d.o))}</span>${i === g.base ? '<span class="chip">Sua base</span>' : ''}${mine && E.tenOf(i) ? `<span class="chip">Tenente ${esc(E.tenOf(i).n)}</span>` : ''}${truceWith(d.o) ? `<span class="chip">Trégua até o dia ${g.f[d.o - 1].truce}</span>` : ''}</p>`;
   if (mine) {
     const lc = d.l < 30 ? 'var(--bad)' : d.l < 60 ? '#f0cf5a' : 'var(--ok)';
     h += `<div class="kv"><div><small>Tropa</small><strong>${d.t}</strong></div><div><small>Lealdade</small><strong style="color:${lc}">${Math.round(d.l)}</strong><div class="meter"><i style="width:${d.l}%;background:${lc}"></i></div></div><div><small>Rende/dia</small><strong>${fmt(incOf(i))}</strong></div></div>`;
@@ -171,6 +179,12 @@ function tabZone() {
     h += `<h4>Construções ${d.b.length}/3</h4><div class="slots">${bOf(i).map(b => `<div class="slot"><i></i><span><b>${esc(b.name)}</b> · ${esc(b.desc)}</span></div>`).join('')}${Array.from({ length: 3 - d.b.length }, () => '<div class="slot empty">Espaço livre</div>').join('')}</div>`;
     if (can('build')) { if (d.b.length < 3) h += S.MD.builds.filter(b => !d.b.includes(b.id)).map(b => `<button class="ghost btn act" data-a="build" data-n="${b.id}" ${g.acts && g.money >= b.cost ? '' : 'disabled'}><span>${esc(b.name)}<small>${esc(b.desc)}</small></span><em>${fmt(b.cost)} · 1 ação</em></button>`).join(''); }
     else h += lockBox('build');
+    const tn = E.tenOf(i);
+    h += `<h4>Tenente da zona</h4>`;
+    if (!can('build')) h += lockBox('build', 'Nomear tenentes');
+    else if (tn) h += `<div class="slot"><i></i><span><b>${esc(tn.n)}</b> · ${esc(E.TEN[tn.s].name)}: ${esc(E.TEN[tn.s].desc)}. Salário R$ 120/dia.</span></div><div class="row"><button class="ghost btn" data-a="fire">Dispensar</button></div>`;
+    else if (E.tenCount() >= E.maxTen()) h += `<p class="note">Você já tem ${E.tenCount()} de ${E.maxTen()} tenentes. ${g.rank < 5 ? `Subir de cargo libera mais.` : ''}</p>`;
+    else h += Object.entries(E.TEN).map(([k, t]) => `<button class="ghost btn act" data-a="hire" data-n="${k}" ${g.acts && g.money >= 1500 ? '' : 'disabled'}><span>${esc(t.name)}<small>${esc(t.desc)} · R$ 120/dia</small></span><em>${fmt(1500)} · 1 ação</em></button>`).join('');
     h += `<h4>Taxa cobrada</h4>` + (can('build') ? `<div class="seg">${[['0', 'Baixa'], ['1', 'Normal'], ['2', 'Alta']].map(([v, l]) => `<button data-a="tax" data-n="${v}" class="${String(d.tx ?? 1) === v ? 'on' : ''}">${l}</button>`).join('')}</div><p class="note">Baixa: renda -30% e lealdade sobe. Alta: renda +35% e lealdade cai.</p>` : lockBox('build', 'Definir a taxa'));
     return h;
   }
@@ -190,7 +204,7 @@ function tabZone() {
 }
 function tabCmd() {
   const g = S.G, inc = pIncome(), up = upkeep();
-  let h = careerCard() + objCard() + `<button class="ghost btn act" data-g="career"><span>Carreira e habilidades</span><em>abrir no celular</em></button>`;
+  let h = jailCard() + careerCard() + objCard() + `<button class="ghost btn act" data-g="career"><span>Carreira e habilidades</span><em>abrir no celular</em></button>`;
   h += `<h4>Loja · sem ação</h4>`;
   h += can('crew') ? `<div class="shop"><button class="ghost" data-a="buy" data-n="sol">${I.sol}<span><b>${esc(S.MD.recruit[0])}</b><small>${esc(S.MD.recruit[1])}</small></span><em>${fmt(recruitCost())}</em></button>` +
     (can('attack') ? `<button class="ghost" data-a="buy" data-n="pis">${I.pis}<span><b>10 pistolas</b><small>Cada ${S.MD.u1} armado bate mais forte</small></span><em>${fmt(600)}</em></button><button class="ghost" data-a="buy" data-n="rif">${I.rif}<span><b>5 fuzis</b><small>O que mais pesa no confronto</small></span><em>${fmt(1800)}</em></button></div><p class="note">Poder da tropa: <b style="color:var(--g1)">x${pq().toFixed(2)}</b>. Sem arma 0,6, pistola 1,1, fuzil 1,8.</p>` : `</div>${lockBox('attack', 'Comprar armas')}`) : lockBox('crew');
@@ -350,6 +364,8 @@ function renderMenu() {
   const saves = Object.keys(MODES).map(k => [k, store.get(SAVE + k)]).filter(x => x[1]);
   $('#conts').innerHTML = saves.map(([k, s]) => `<button class="gold btn" data-cont="${k}">Continuar ${MODES[k].name}<small>dia ${s.day}</small></button>`).join('') + `<button class="ghost btn" data-g="new">Nova partida<small>escolha o modo</small></button>`;
   $('#sndBtn').textContent = 'Som: ' + (sound ? 'ligado' : 'desligado');
+  const recs = store.get('ddc.records') || [];
+  $('#recs').innerHTML = recs.length ? `<h4 style="margin:6px 0 8px">Seus recordes</h4><ul class="rep" style="margin:0;text-align:left">${recs.slice(0, 5).map(r => `<li><span>${esc(MODES[r.mode]?.name || r.mode)} · ${esc(r.nick)} · ${r.win ? 'venceu' : 'caiu'} no dia ${r.day}</span><b style="color:var(--g1)">${r.score}</b></li>`).join('')}</ul>` : '';
   const J = mapsLoaded().rio;
   if (J) {
     const [a, b, c, d] = J.bounds, k = Math.cos((b + d) / 2 * Math.PI / 180), W = 1600, sc = W / ((c - a) * k), H = Math.round((d - b) * sc), pal = ['#e5484d', '#3b82f6', '#22a06b', '#a855f7'];
