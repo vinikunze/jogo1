@@ -448,4 +448,4 @@ addEventListener('resize', () => { if (S.G && !$('#game').classList.contains('hi
   try { await loadMap('rio'); } catch (e) {}
   $('#loading').remove(); $('#menu').classList.remove('hide'); renderMenu();
 })();
-window.__DDC = { S, A, MAP, E, endDay: doEndDay, refresh };
+window.__DDC = { S, A, MAP, E, ST, endDay: doEndDay, refresh };

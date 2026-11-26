@@ -565,3 +565,6 @@ export function dayEnd(rep) {
   relationTick(rep);
   objTick(true, rep);
 }
+// usado nos testes automáticos
+export function forceStory(id) { const s = STORIES.find(x => x.id === id), d = {}; if (!s || !s.init(d)) return false; S.G.story = { id, step: 'a', due: S.G.day, data: d, mid: null }; sendStep(); return true; }
+export const storyIds = m => STORIES.filter(s => !s.modes || s.modes.includes(m)).map(s => s.id);
