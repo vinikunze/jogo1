@@ -1,9 +1,9 @@
 // Interface: menu, HUD, painel, celular (WhatsApp), diálogos e som.
-import { MODES, SOON, XP, UNLOCK, SKILLS, ACH, ZT } from './data.js';
+import { MODES, SOON, XP, UNLOCK, SKILLS, ACH, ZT, TIERS } from './data.js';
 import {
   S, A, SAVE, store, fmt, sum, clamp, R, loadMap, mapsLoaded, newGame, resume, startAt, owned, colorOf, oname, sk, rankName, can, unlockRank,
   skillPoints, pTroops, pq, defVal, incOf, pIncome, upkeep, maxActs, reach, recruitCost, bribeCost, visible, est, estDef, odds, atkPow, bOf,
-  sellCap, storage, stockTotal, contacts, contactById, answer, unread, buySkill, truceWith, endDay, saveGame, goal, checkEnd,
+  storage, stockTotal, comLevel, comLabel, priceOf, buyPrice, demandFor, demandZone, moodLabel, rivalsNear, riskOf, canStart, tierQ, contacts, contactById, answer, unread, buySkill, truceWith, endDay, saveGame, goal, checkEnd,
 } from './engine.js';
 import * as MAP from './map.js';
 import * as E from './engine.js';
@@ -42,6 +42,7 @@ const I = {
   mkt: '<svg viewBox="0 0 32 32"><path d="M5 12l3-6h16l3 6z" fill="#fff"/><rect x="7" y="13" width="18" height="13" rx="2" fill="#fff" opacity=".85"/><rect x="13" y="17" width="6" height="9" fill="#1d1406"/></svg>',
   car: '<svg viewBox="0 0 32 32"><path d="M16 4l3.5 7.2 7.9 1.1-5.7 5.6 1.3 7.8L16 22l-7 3.7 1.3-7.8-5.7-5.6 7.9-1.1z" fill="#fff"/></svg>',
   nws: '<svg viewBox="0 0 32 32"><rect x="5" y="6" width="22" height="20" rx="3" fill="#fff"/><path d="M9 11h14M9 15h14M9 19h9" stroke="#1d1406" stroke-width="2"/></svg>',
+  fin: '<svg viewBox="0 0 32 32"><path d="M5 26h22" stroke="#fff" stroke-width="2.4"/><rect x="7" y="16" width="4" height="8" fill="#fff"/><rect x="14" y="11" width="4" height="13" fill="#fff"/><rect x="21" y="6" width="4" height="18" fill="#fff"/></svg>',
   map: '<svg viewBox="0 0 32 32"><path d="M4 8l8-3 8 3 8-3v19l-8 3-8-3-8 3z" fill="#fff"/><path d="M12 5v19M20 8v19" stroke="#1d1406" stroke-width="1.6"/></svg>',
 };
 const lockBox = (key, what) => `<div class="lock">${I.lock}<span>${what || UNLOCK[unlockRank(key)].label}: libera no cargo <b>${esc(S.MD.ranks[unlockRank(key)])}</b>.</span></div>`;
@@ -80,7 +81,7 @@ function renderHUD() {
   const hud = $('#hud'); hud.style.setProperty('--pc', S.MD.color);
   hud.innerHTML = `<div class="brand">${I.emb}<div><b>${esc(g.pname)}</b><small>${ph ? `${S.MD.name} · ${esc(S.MD.city)}` : `${esc(g.nick)} · ${esc(rankName())} <span class="xp" title="${g.xp} de experiência"><i style="width:${pct}%"></i></span>`}</small></div></div>
   <div class="stats">${ph ? '' : `<div class="stat"><small>Dia</small><strong>${g.day}</strong></div>
-  <div class="stat"><small>Caixa</small><strong>${fmt(g.money)} <em style="color:${net >= 0 ? 'var(--ok)' : 'var(--bad)'}">${net >= 0 ? '+' : ''}${fmt(net)}</em></strong></div>
+  <div class="stat" data-app-open="fin" style="cursor:pointer" title="Abrir finanças"><small>Caixa${g.lastPL ? ' · lucro ontem' : ''}</small><strong>${fmt(g.money)} ${g.lastPL ? `<em style="color:${g.lastPL.luc >= 0 ? 'var(--ok)' : 'var(--bad)'}">${g.lastPL.luc >= 0 ? '▲ +' : '▼ '}${fmt(g.lastPL.luc)}</em>` : `<em style="color:${net >= 0 ? 'var(--ok)' : 'var(--bad)'}">${net >= 0 ? '+' : ''}${fmt(net)}</em>`}</strong></div>
   <div class="stat"><small>Tropa · base</small><strong>${pTroops()} · ${g.reserve}</strong></div>
   <div class="stat"><small>Fuzis · pistolas</small><strong>${g.rif} · ${g.pis}</strong></div>
   <div class="stat"><small>${S.MD.heat}</small><div class="bar"><i style="width:${g.heat}%;background:${hc}"></i></div></div>
@@ -116,16 +117,27 @@ function careerCard() {
   return `<div class="career"><small class="note">Seu cargo</small><br><b>${esc(rankName())}</b><div class="meter"><i style="width:${pct}%;background:var(--gold)"></i></div>
     <p class="note" style="margin:6px 0 0">${nx ? `${g.xp} de ${nx} de respeito. Próximo: <strong style="color:var(--ink)">${esc(S.MD.ranks[g.rank + 1])}</strong>, libera ${esc(UNLOCK[g.rank + 1].label.toLowerCase())}.` : 'Você está no topo.'}${sp > 0 ? ` <strong style="color:var(--g1)">${sp} ponto${sp > 1 ? 's' : ''} de habilidade para usar.</strong>` : ''}</p></div>`;
 }
+function baseInfo(i) {
+  const [cl, cc] = comLabel(comLevel(i)), [rl, rc] = riskOf(i), near = rivalsNear(i);
+  const tax = Math.round(S.M.val[i] * .85 * (S.MD.inc[S.M.type[i]] || 1) * (S.MD.budget ? .4 : 1));
+  const g0 = S.MD.goods[0], sale = Math.round(demandZone(i, g0, { l: 70 }) * (g0.ref - (g0.buy || 0)));
+  const str = { forte: '#ff5b4f', 'médio': '#f0cf5a', fraco: '#5fd48a' };
+  return `<div class="kv"><div><small>Comércio</small><strong style="color:${cc}">${cl}</strong></div><div><small>Risco</small><strong style="color:${rc}">${rl}</strong></div><div><small>Renda/dia</small><strong>${fmt(tax + sale)}</strong></div></div>
+    <ul class="rep" style="margin:0 0 12px"><li><span>Arrecadação estimada</span><b>${fmt(tax)}</b></li><li><span>Lucro de ${esc(g0.name.toLowerCase())} na ${S.MD.shop.split(' ')[0].replace(/s$/, '')}</span><b>~${fmt(sale)}</b></li>
+    ${near.length ? near.map(r => `<li><span><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${r.F.color};margin-right:6px"></i>${esc(r.F.name)} ${r.dist === 1 ? 'é vizinho' : 'está a 2 zonas'}</span><b style="color:${str[r.F.str]}">${r.F.str}</b></li>`).join('') : '<li><span>Nenhum rival por perto</span><b style="color:var(--ok)">tranquilo</b></li>'}</ul>`;
+}
 function tabSetup() {
-  const i = S.sel, ok = i != null && S.MD.startPool(S.M.type[i]);
-  const sug = [...Array(S.M.N).keys()].filter(j => S.MD.startPool(S.M.type[j])).slice(0, 8);
-  return `<h2>Comece sua história</h2><p class="sub">${esc(S.MD.startTxt)} As zonas em dourado podem ser a sua base.</p>
-  ${ok ? `<div class="atk"><h2 style="font-size:26px">${esc(S.M.z[i].n)}</h2><p class="sub">${ZT[S.M.type[i]].label} · rende ${fmt(S.M.val[i] * (S.MD.inc[S.M.type[i]] || 1))} por dia</p>
+  const i = S.sel, ok = i != null && canStart(i);
+  const sug = [...Array(S.M.N).keys()].filter(canStart).sort((a, b) => comLevel(b) - comLevel(a)).slice(0, 8);
+  const str = { forte: '#ff5b4f', 'médio': '#f0cf5a', fraco: '#5fd48a' };
+  return `<h2>Comece sua história</h2><p class="sub">${esc(S.MD.startTxt)} As zonas em dourado podem ser a sua base. Compare o comércio e os rivais por perto.</p>
+  ${ok ? `<div class="atk"><h2 style="font-size:26px">${esc(S.M.z[i].n)}</h2><p class="sub">${ZT[S.M.type[i]].label}</p>${baseInfo(i)}
     <h4 style="margin-top:4px">Como você começa</h4><div class="choice">${S.MD.starts.map(([r, t, d]) => `<button class="ghost ${setup.rank === r ? 'on' : ''}" data-rank="${r}"><b>${esc(t)}</b><small>${esc(d)}</small></button>`).join('')}</div>
     <div class="field"><label for="nick">Seu apelido (é assim que vão te chamar no celular)</label><input id="nick" maxlength="18" value="${esc(setup.nick)}" placeholder="Ex.: Vini"></div>
     <button class="gold btn act" data-a="start"><span>Começar aqui</span><em>dia 1</em></button></div>`
-    : `<p class="note">${i != null ? esc(S.M.z[i].n) + ' não pode ser base neste modo. ' : ''}Toque numa zona dourada ou escolha abaixo.</p>
-    <h4>Sugestões</h4><div class="tgt">${sug.map(j => `<button class="ghost" data-sel="${j}"><b>${esc(S.M.z[j].n)}</b><span style="color:var(--mu)">${ZT[S.M.type[j]].label}</span></button>`).join('')}</div>`}`;
+    : `<p class="note">${i != null ? esc(S.M.z[i].n) + ' não pode ser base neste modo. ' : ''}Toque numa zona dourada ou escolha abaixo.</p>`}
+  <h4>Opções de base</h4><div class="tgt">${sug.map(j => { const [cl, cc] = comLabel(comLevel(j)), [rl, rc] = riskOf(j); return `<button class="ghost" data-sel="${j}"><b>${esc(S.M.z[j].n)}</b><span><span style="color:${cc}">Comércio ${cl.toLowerCase()}</span> · <span style="color:${rc}">risco ${rl.toLowerCase()}</span></span></button>`; }).join('')}</div>
+  <h4>Rivais na cidade</h4><div class="legend">${S.G.f.map((f, k) => `<div><i style="background:${f.color}"></i>${esc(f.name)}<span style="color:${str[f.str]}">${f.str}</span></div>`).join('')}</div>`;
 }
 function tabZone() {
   const g = S.G;
@@ -141,6 +153,7 @@ function tabZone() {
   if (mine) {
     const lc = d.l < 30 ? 'var(--bad)' : d.l < 60 ? '#f0cf5a' : 'var(--ok)';
     h += `<div class="kv"><div><small>Tropa</small><strong>${d.t}</strong></div><div><small>Lealdade</small><strong style="color:${lc}">${Math.round(d.l)}</strong><div class="meter"><i style="width:${d.l}%;background:${lc}"></i></div></div><div><small>Rende/dia</small><strong>${fmt(incOf(i))}</strong></div></div>`;
+    { const [cl, cc] = comLabel(comLevel(i)); h += `<p class="note" style="margin-top:-6px">Comércio <b style="color:${cc}">${cl.toLowerCase()}</b>${g.zsale[i] != null ? ` · vendeu ontem <b style="color:var(--ink)">${fmt(g.zsale[i])}</b> nas ${S.MD.shop}` : ''}.</p>`; }
     if (d.l < 25) h += `<p class="note" style="color:var(--bad)">Lealdade baixa: risco de denúncia e de revolta. Baixe a taxa ou construa algo para o povo.</p>`;
     h += `<h4>Mover tropa · sem ação</h4>` + (can('crew') ? `<div class="row"><button class="ghost btn" data-a="dep" data-n="5" ${g.reserve ? '' : 'disabled'}>Mandar 5</button><button class="ghost btn" data-a="dep" data-n="all" ${g.reserve ? '' : 'disabled'}>Mandar todos (${g.reserve})</button></div><div class="row"><button class="ghost btn" data-a="wd" data-n="5" ${d.t ? '' : 'disabled'}>Recolher 5</button><button class="ghost btn" data-a="wd" data-n="all" ${d.t ? '' : 'disabled'}>Recolher todos</button></div>` : lockBox('crew'));
     h += `<h4>Construções ${d.b.length}/3</h4><div class="slots">${bOf(i).map(b => `<div class="slot"><i></i><span><b>${esc(b.name)}</b> · ${esc(b.desc)}</span></div>`).join('')}${Array.from({ length: 3 - d.b.length }, () => '<div class="slot empty">Espaço livre</div>').join('')}</div>`;
@@ -150,6 +163,7 @@ function tabZone() {
     return h;
   }
   h += `<div class="kv"><div><small>Tropa</small><strong>${vis ? d.t : `${lo}-${hi}?`}</strong></div><div><small>Defesa</small><strong>${Math.round(ZT[S.M.type[i]].def * 100)}%</strong></div><div><small>Rende/dia</small><strong>${fmt(S.M.val[i] * (S.MD.inc[S.M.type[i]] || 1) * (S.MD.budget ? .4 : 1))}</strong></div></div>`;
+  { const [cl, cc] = comLabel(comLevel(i)); h += `<p class="note" style="margin-top:-6px">Comércio <b style="color:${cc}">${cl.toLowerCase()}</b>. Se for sua, aumenta as vendas nas ${S.MD.shop}.</p>`; }
   if (!vis) h += `<p class="note">Sem informação exata da tropa. Mande um olheiro ou cumpra uma missão de vigiar.</p>`;
   if (!reach(i)) return h + `<p class="note">${truceWith(d.o) ? 'Você está em trégua com esse grupo.' : 'Fora de alcance. Domine uma zona vizinha primeiro.'}</p>`;
   if (!vis) h += can('crew') ? `<button class="ghost btn act" data-a="scout" ${g.acts && g.money >= 200 ? '' : 'disabled'}><span>Mandar olheiro<small>Mostra a tropa exata por 4 dias</small></span><em>${fmt(200)} · 1 ação</em></button>` : '';
@@ -188,6 +202,19 @@ function renderPanel() {
 }
 function updOdds() { const r = $('#amt'); if (!r || S.sel == null) return; $('#amtv').textContent = r.value; const [t, c] = odds(atkPow(+r.value) / estDef(S.sel)), o = $('#odds'); o.textContent = t; o.style.color = c; }
 
+// ---------- gráfico de lucro ----------
+function plChart(H, W = 320, Hh = 130) {
+  if (!H.length) return '';
+  const mx = Math.max(1, ...H.map(x => Math.abs(x.luc))), n = H.length, bw = W / n, z = Hh / 2;
+  const cx = H.map(x => x.caixa), cmin = Math.min(...cx), cmax = Math.max(...cx), cy = v => Hh - 8 - (cmax === cmin ? .5 : (v - cmin) / (cmax - cmin)) * (Hh - 16);
+  const bars = H.map((x, k) => { const hgt = Math.max(2, Math.abs(x.luc) / mx * (z - 6)); return `<rect x="${(k * bw + bw * .18).toFixed(1)}" y="${(x.luc >= 0 ? z - hgt : z).toFixed(1)}" width="${(bw * .64).toFixed(1)}" height="${hgt.toFixed(1)}" rx="2" fill="${x.luc >= 0 ? '#5fd48a' : '#ff5b4f'}"/>`; }).join('');
+  const line = H.map((x, k) => `${k ? 'L' : 'M'}${(k * bw + bw / 2).toFixed(1)},${cy(x.caixa).toFixed(1)}`).join('');
+  return `<svg viewBox="0 0 ${W} ${Hh + 16}" style="width:100%;height:auto;display:block;background:#111b21;border:1px solid #233138;border-radius:12px;padding:6px" role="img" aria-label="Lucro por dia">
+    <line x1="0" y1="${z}" x2="${W}" y2="${z}" stroke="rgba(255,255,255,.15)"/>${bars}<path d="${line}" fill="none" stroke="#f7dc8e" stroke-width="2"/>
+    ${H.map((x, k) => (n <= 8 || k % 2 === n % 2 || k === n - 1) ? `<text x="${(k * bw + bw / 2).toFixed(1)}" y="${Hh + 12}" fill="#8696a0" font-size="10" text-anchor="middle" font-family="Barlow,sans-serif">${x.d}</text>` : '').join('')}</svg>
+    <p class="note" style="margin:6px 0 0"><span style="color:#5fd48a">■</span> lucro <span style="color:#ff5b4f">■</span> prejuízo <span style="color:#f7dc8e">━</span> caixa</p>`;
+}
+
 // ---------- celular ----------
 function threads() {
   const by = {}; for (const m of S.G.msgs) (by[m.c] = by[m.c] || []).push(m);
@@ -201,7 +228,7 @@ function renderPhone() {
   if (phone.app === 'home') {
     const app = (k, ic, bg, label, locked, badge) => `<button class="app ${locked ? 'locked' : ''}" data-app="${k}"><span class="ic" style="background:${bg}">${ic}</span>${label}${badge ? `<span class="badge">${badge}</span>` : ''}</button>`;
     h = `<div class="home"><div class="clock">21:40</div><div class="date">Dia ${g.day} · ${esc(g.nick)}, ${esc(rankName())}</div><div class="apps">
-      ${app('zap', I.zap, '#25d366', 'WhatsApp', false, ur)}${app('con', I.con, '#3b82f6', 'Contatos')}${app('mkt', I.mkt, '#d6a645', 'Mercado', !can('market'))}
+      ${app('zap', I.zap, '#25d366', 'WhatsApp', false, ur)}${app('con', I.con, '#3b82f6', 'Contatos')}${app('mkt', I.mkt, '#d6a645', 'Mercado')}${app('fin', I.fin, '#0f9d58', 'Finanças')}
       ${app('car', I.car, '#a855f7', 'Carreira', false, sp > 0 ? sp : 0)}${app('nws', I.nws, '#e5484d', 'Notícias')}${app('map', I.map, '#1fa38a', 'Mapa')}</div>
       <div class="dock"><button data-g="phone" aria-label="Fechar celular"></button></div></div>`;
   } else if (phone.app === 'zap') {
@@ -228,15 +255,32 @@ function renderPhone() {
       ${locked.map(c => `<button disabled><span class="av" style="background:#333">${I.lock}</span><span class="mid"><b>${esc(c.role)}</b><span>Libera no cargo ${esc(S.MD.ranks[c.min])}</span></span></button>`).join('')}
       ${g.rank < 5 ? `<button disabled><span class="av" style="background:#333">${I.lock}</span><span class="mid"><b>Chefes rivais</b><span>Libera no cargo ${esc(S.MD.ranks[5])}</span></span></button>` : ''}</div>`;
   } else if (phone.app === 'mkt') {
-    h = `<div class="ahead"><button class="back" data-app="home" aria-label="Voltar">${I.back}</button><div><b>Mercado</b><small>${can('market') ? `Venda hoje: ${g.sold} de ${sellCap()}` : 'Bloqueado'}</small></div></div><div class="abody app-pad">`;
-    if (!can('market')) h += lockBox('market');
+    const cm = can('market');
+    h = `<div class="ahead"><button class="back" data-app="home" aria-label="Voltar">${I.back}</button><div><b>Mercado</b><small>Depósito ${stockTotal()} de ${storage()} · ${S.MD.shop}</small></div></div><div class="abody app-pad">`;
+    h += cm ? `<button class="ghost btn act" data-a="auto" style="margin-bottom:12px"><span>Compra automática<small>Repõe o estoque quando o fornecedor está barato</small></span><em style="color:${g.auto ? 'var(--ok)' : 'var(--mu)'}">${g.auto ? 'ligada' : 'desligada'}</em></button>`
+      : lockBox('market', 'Definir preço e comprar do fornecedor') + `<p class="note" style="margin-top:0">Por enquanto a firma vende a preço médio e compra no automático. Você acompanha os números.</p>`;
+    h += S.MD.goods.map(gd => {
+      const t = g.pt[gd.id], mood = g.mood[gd.id] || 1, [ml, mc] = moodLabel(mood), bp = gd.buy ? buyPrice(gd.id) : null, cost = g.cost[gd.id] || 0;
+      const est = Math.round(demandFor(gd.id, t)), price = priceOf(gd.id), sold = Math.min(est, g.stock[gd.id]), estP = sold * (price - cost);
+      const L = g.last[gd.id], tr = bp ? (bp > gd.buy * 1.05 ? '<span style="color:#ff9a52">▲ caro</span>' : bp < gd.buy * .95 ? '<span style="color:#5fd48a">▼ barato</span>' : 'normal') : '';
+      return `<div class="good"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b>${esc(gd.name)}</b><span class="chip" style="color:${mc}">${ml}</span></div>
+        <div class="px">${bp ? `<span>Fornecedor <strong>${fmt(bp)}</strong> ${tr}</span>` : '<span>Chega pelas apreensões</span>'}<span>Seu custo <strong>${fmt(cost)}</strong></span><span>Estoque <strong>${g.stock[gd.id]}</strong> ${gd.unit}</span></div>
+        <div class="seg tiers">${TIERS.map(([l], k) => `<button data-a="price" data-n="${gd.id}|${k}" class="${t === k ? 'on' : ''}" ${cm ? '' : 'disabled'}>${l}<small>${fmt(priceOf(gd.id, k))}</small></button>`).join('')}</div>
+        <p class="note" style="margin:4px 0 8px">Vende por <b style="color:var(--ink)">${fmt(price)}</b>. Procura hoje: ~${est} ${gd.unit}${est > g.stock[gd.id] ? ` <span style="color:#ff9a52">(falta estoque)</span>` : ''} · Lucro estimado: <b style="color:${estP >= 0 ? 'var(--ok)' : 'var(--bad)'}">${fmt(estP)}</b>.</p>
+        ${L ? `<p class="note" style="margin:0 0 8px">Ontem: vendeu ${L.sold} de ${L.dem} procurados · ${fmt(L.rev)} · lucro <b style="color:${L.rev - L.cost >= 0 ? 'var(--ok)' : 'var(--bad)'}">${fmt(L.rev - L.cost)}</b></p>` : ''}
+        ${bp && cm ? `<div class="row"><button class="ghost" data-a="trade" data-n="buy|${gd.id}|10">+10 · ${fmt(bp * 10)}</button><button class="ghost" data-a="trade" data-n="buy|${gd.id}|50">+50 · ${fmt(bp * 50)}</button><button class="ghost" data-a="trade" data-n="buy|${gd.id}|100">+100</button></div>` : ''}</div>`;
+    }).join('') + `<p class="note">Preço baixo vende mais e chama mais atenção. Preço alto lucra mais por unidade, mas vende menos. A procura muda todo dia, e zonas com rival do lado vendem 20% menos.</p></div>`;
+  } else if (phone.app === 'fin') {
+    const H = g.hist, L = H[H.length - 1], P = H[H.length - 2], last7 = H.slice(-7), avg = last7.length ? sum(last7.map(x => x.luc)) / last7.length : 0, best = H.length ? H.reduce((a, b) => b.luc > a.luc ? b : a) : null;
+    h = `<div class="ahead"><button class="back" data-app="home" aria-label="Voltar">${I.back}</button><div><b>Finanças</b><small>Caixa ${fmt(g.money)}</small></div></div><div class="abody app-pad">`;
+    if (!L) h += `<p class="note">Encerre o primeiro dia para ver o resultado. Aqui aparece o lucro e o prejuízo de cada dia.</p>`;
     else {
-      h += `<p class="note" style="margin-top:0">Depósito: ${stockTotal()} de ${storage()}. Vender sobe a pressão. Preço muda todo dia.</p>` + S.MD.goods.map(gd => {
-        const bp = gd.buy ? Math.round(g.px.buy[gd.id] * (sk('trade') ? .9 : 1)) : null, sp2 = Math.round(g.px.sell[gd.id] * (sk('trade') ? 1.15 : 1)), base = gd.sell, tr = sp2 > base * 1.1 ? '▲ alta' : sp2 < base * .9 ? '▼ baixa' : 'normal';
-        return `<div class="good"><b>${esc(gd.name)}</b><div class="px">${bp ? `<span>Compra <strong>${fmt(bp)}</strong></span>` : '<span>Vem das apreensões</span>'}<span>Venda <strong>${fmt(sp2)}</strong> (${tr})</span><span>Estoque <strong>${g.stock[gd.id] || 0}</strong></span></div>
-        ${bp ? `<div class="row"><button class="ghost" data-a="trade" data-n="buy|${gd.id}|10">Comprar 10</button><button class="ghost" data-a="trade" data-n="buy|${gd.id}|50">Comprar 50</button></div>` : ''}
-        <div class="row"><button class="ghost" data-a="trade" data-n="sell|${gd.id}|10">Vender 10</button><button class="ghost" data-a="trade" data-n="sell|${gd.id}|50">Vender 50</button><button class="ghost" data-a="trade" data-n="sell|${gd.id}|all">Tudo</button></div></div>`;
-      }).join('');
+      const dv = P ? L.luc - P.luc : 0;
+      h += `<div class="good"><small class="note">Resultado do dia ${L.d}</small><div style="font-family:var(--disp);font-size:40px;line-height:1.1;color:${L.luc >= 0 ? 'var(--ok)' : 'var(--bad)'}">${L.luc >= 0 ? '+' : ''}${fmt(L.luc)}</div>
+        <p class="note" style="margin:2px 0 0">${P ? `${dv >= 0 ? '▲' : '▼'} ${fmt(Math.abs(dv))} em relação ao dia anterior · ` : ''}média de 7 dias ${fmt(avg)}${best ? ` · melhor dia: ${best.d} (${fmt(best.luc)})` : ''}</p></div>
+        <h3>Lucro por dia</h3>${plChart(H.slice(-14))}
+        <h3>Dia ${L.d} em detalhe</h3><ul class="rep" style="margin-top:0"><li><span>Vendas nas ${S.MD.shop}</span><b style="color:var(--ok)">+${fmt(L.ven)}</b></li><li><span>Custo da mercadoria</span><b style="color:var(--bad)">-${fmt(L.cmv)}</b></li><li><span>Arrecadação</span><b style="color:var(--ok)">+${fmt(L.arr)}</b></li><li><span>Salários</span><b style="color:var(--bad)">-${fmt(L.sal)}</b></li><li><span>Lucro</span><b>${fmt(L.luc)}</b></li><li><span>Comprou de estoque</span><b>${fmt(L.buys)}</b></li>${L.lost > 0 ? `<li><span>Deixou de vender (faltou mercadoria)</span><b style="color:#ff9a52">${fmt(L.lost)}</b></li>` : ''}</ul>
+        <h3>Últimos dias</h3><ul class="rep" style="margin-top:0">${H.slice(-7).reverse().map(x => `<li><span>Dia ${x.d} · caixa ${fmt(x.caixa)}</span><b style="color:${x.luc >= 0 ? 'var(--ok)' : 'var(--bad)'}">${x.luc >= 0 ? '+' : ''}${fmt(x.luc)}</b></li>`).join('')}</ul>`;
     }
     h += '</div>';
   } else if (phone.app === 'car') {
@@ -271,7 +315,12 @@ function doEndDay() {
   newMsgs = 0; batching = true; const before = S.G.rank; const rep = endDay(); batching = false;
   if (S.G.over) { refresh(); return; }
   const n = unread();
-  dq.unshift(`<h2>Relatório do dia ${S.G.day - 1}</h2><p class="note">Caixa agora: <b style="color:var(--ink)">${fmt(S.G.money)}</b> · ${S.G.acts} ações para o dia ${S.G.day}</p>
+  const L = S.G.lastPL, P = S.G.hist[S.G.hist.length - 2], dv = P ? L.luc - P.luc : 0;
+  dq.unshift(`<h2>Relatório do dia ${S.G.day - 1}</h2>
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:6px 0 4px"><div><small class="note">${L.luc >= 0 ? 'Lucro do dia' : 'Prejuízo do dia'}</small><div style="font-family:var(--disp);font-size:44px;line-height:1;color:${L.luc >= 0 ? 'var(--ok)' : 'var(--bad)'}">${L.luc >= 0 ? '+' : ''}${fmt(L.luc)}</div></div>
+    ${P ? `<span class="chip" style="color:${dv >= 0 ? 'var(--ok)' : 'var(--bad)'}">${dv >= 0 ? '▲' : '▼'} ${fmt(Math.abs(dv))} vs ontem</span>` : ''}</div>
+    ${S.G.hist.length > 1 ? plChart(S.G.hist.slice(-10), 320, 90) : ''}
+    <p class="note">Caixa agora: <b style="color:var(--ink)">${fmt(S.G.money)}</b> · ${S.G.acts} ações para o dia ${S.G.day}</p>
     <ul class="rep">${rep.map(([c, t, v]) => `<li><span>${esc(t)}</span><b style="color:${c === 'good' ? 'var(--ok)' : 'var(--bad)'}">${esc(v)}</b></li>`).join('')}</ul>
     ${n ? `<div class="row"><button class="ghost btn" data-g="close">Ver o mapa</button><button class="gold btn" data-g="zapnow">${n} mensage${n > 1 ? 'ns' : 'm'} no celular</button></div>` : `<button class="gold btn" data-g="close">Começar dia ${S.G.day}</button>`}`);
   if ($('#dlg').classList.contains('hide')) nextDlg();
@@ -309,7 +358,7 @@ const HOW = `<h2>Como jogar</h2><ul class="rep txt">
 
 // ---------- eventos ----------
 document.addEventListener('click', async e => {
-  const t = e.target.closest('button,[data-g]'); if (!t) return;
+  const t = e.target.closest('button,[data-g],[data-app-open]'); if (!t) return;
   const D = t.dataset;
   if (D.g) {
     const v = D.g;
@@ -322,6 +371,7 @@ document.addEventListener('click', async e => {
     if (v === 'career') { closeDlg(); return openPhone('car'); }
     if (v === 'zapnow') { closeDlg(); return openPhone('zap'); }
   }
+  if (t.closest('[data-app-open]') || D.appOpen) { return openPhone(t.closest('[data-app-open]')?.dataset.appOpen || D.appOpen); }
   if (D.app) { if (D.app === 'map') { phone.open = false; return refresh(); } if (D.app === 'mkt' && !can('market')) { phone.app = 'mkt'; return refresh(); } phone.app = D.app; sfx.click(); return refresh(); }
   if (D.chat) { phone.app = 'chat'; phone.chat = D.chat; sfx.click(); return refresh(); }
   if (D.new) { const k = D.new, s = store.get(SAVE + k); if (s) return dialog(`<h2>Começar de novo?</h2><p class="note">A partida de ${MODES[k].name} no dia ${s.day} será apagada.</p><div class="row"><button class="ghost btn" data-g="close">Cancelar</button><button class="gold btn" data-confirm="${k}">Começar nova</button></div>`); await newGame(k); setup = { rank: 0, nick: setup.nick }; return enterGame(); }
@@ -334,10 +384,12 @@ document.addEventListener('click', async e => {
   if (D.rank != null && D.rank !== undefined && t.closest('.choice')) { setup.rank = +D.rank; setup.nick = $('#nick')?.value || setup.nick; sfx.click(); return renderPanel(); }
   if (!D.a || t.disabled || !S.G || S.G.over) return;
   const a = D.a;
-  if (a === 'start') { if (S.sel == null || !S.MD.startPool(S.M.type[S.sel])) return; setup.nick = $('#nick')?.value || ''; batching = true; startAt(S.sel, setup.rank, setup.nick); batching = false; sfx.win(); MAP.focusOn(S.sel, true); refresh(); setTimeout(() => { if (unread()) { result('Celular', 'Você tem mensagens novas. Toque no celular dourado.', 'good'); sfx.ping(); } }, 900); return; }
+  if (a === 'start') { if (S.sel == null || !canStart(S.sel)) return; setup.nick = $('#nick')?.value || ''; batching = true; startAt(S.sel, setup.rank, setup.nick); batching = false; sfx.win(); MAP.focusOn(S.sel, true); refresh(); setTimeout(() => { if (unread()) { result('Celular', 'Você tem mensagens novas. Toque no celular dourado.', 'good'); sfx.ping(); } }, 900); return; }
   if (a === 'endDay') return doEndDay();
   if (a === 'ans') { answer(+D.m, +D.n); sfx.click(); return refresh(); }
   if (a === 'skill') { buySkill(D.n); return refresh(); }
+  if (a === 'price') { const [id, t] = D.n.split('|'); A.price(id, t); saveGame(); return refresh(); }
+  if (a === 'auto') { A.auto(); saveGame(); return refresh(); }
   if (a === 'trade') { const [op, id, q] = D.n.split('|'); A.trade(op, id, q); saveGame(); return refresh(); }
   if (a === 'attack') { A.attack(+($('#amt')?.value || 0)); saveGame(); return refresh(); }
   if (a === 'truce') { A.truce(+D.n); saveGame(); return refresh(); }

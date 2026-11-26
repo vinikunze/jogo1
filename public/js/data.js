@@ -2,17 +2,24 @@
 // Tudo aqui é ficção. Nomes de zonas, grupos e personagens são inventados.
 
 export const ZT = {
-  comunidade: { label: 'Comunidade', inc: 380, def: 1.35, gar: [7, 10], cap: 60, loy: 55 },
-  suburbio:   { label: 'Subúrbio', inc: 300, def: 1.0, gar: [4, 7], cap: 30, loy: 50 },
-  nobre:      { label: 'Área nobre', inc: 520, def: 1.1, gar: [5, 8], cap: 45, loy: 40 },
-  centro:     { label: 'Centro', inc: 560, def: 1.2, gar: [8, 11], cap: 40, loy: 45 },
-  porto:      { label: 'Porto', inc: 480, def: 1.1, gar: [6, 9], cap: 55, loy: 45 },
-  periferia:  { label: 'Periferia', inc: 260, def: 1.0, gar: [3, 6], cap: 25, loy: 55 },
-  capitale:   { label: 'Capital', inc: 1100, def: 1.5, gar: [16, 20], cap: 80, loy: 40 },
-  citta:      { label: 'Cidade', inc: 420, def: 1.2, gar: [7, 10], cap: 40, loy: 50 },
-  costa:      { label: 'Litoral', inc: 380, def: 1.05, gar: [5, 8], cap: 55, loy: 50 },
-  campagna:   { label: 'Interior', inc: 240, def: 1.0, gar: [3, 6], cap: 20, loy: 60 },
+  comunidade: { label: 'Comunidade', com: 1.3, inc: 380, def: 1.35, gar: [7, 10], cap: 60, loy: 55 },
+  suburbio:   { label: 'Subúrbio', com: 1.0, inc: 300, def: 1.0, gar: [4, 7], cap: 30, loy: 50 },
+  nobre:      { label: 'Área nobre', com: 1.2, inc: 520, def: 1.1, gar: [5, 8], cap: 45, loy: 40 },
+  centro:     { label: 'Centro', com: 1.5, inc: 560, def: 1.2, gar: [8, 11], cap: 40, loy: 45 },
+  porto:      { label: 'Porto', com: 1.2, inc: 480, def: 1.1, gar: [6, 9], cap: 55, loy: 45 },
+  periferia:  { label: 'Periferia', com: 0.75, inc: 260, def: 1.0, gar: [3, 6], cap: 25, loy: 55 },
+  capitale:   { label: 'Capital', com: 1.8, inc: 1100, def: 1.5, gar: [16, 20], cap: 80, loy: 40 },
+  citta:      { label: 'Cidade', com: 1.1, inc: 420, def: 1.2, gar: [7, 10], cap: 40, loy: 50 },
+  costa:      { label: 'Litoral', com: 1.0, inc: 380, def: 1.05, gar: [5, 8], cap: 55, loy: 50 },
+  campagna:   { label: 'Interior', com: 0.65, inc: 240, def: 1.0, gar: [3, 6], cap: 20, loy: 60 },
 };
+
+export const TIERS = [['Bem baixo', .7], ['Baixo', .85], ['Médio', 1], ['Alto', 1.2], ['Bem alto', 1.45]];
+export const RIVAL_STR = [
+  { lbl: 'forte', t: 18, nb: 2, q: 1.25, money: 3000 },
+  { lbl: 'médio', t: 13, nb: 1, q: 1.1, money: 2000 },
+  { lbl: 'fraco', t: 9, nb: 1, q: .95, money: 1200 },
+];
 
 export const XP = [0, 150, 450, 1000, 1800, 3000];
 
@@ -55,11 +62,15 @@ export const MODES = {
     words: { load: 'a carga', cops: 'os homens', money: 'o arrego', hood: 'a quebrada', team: 'a rapaziada' },
     contacts: [C('chefe', 'Coroa', 'Seu chefe', 0, 4), C('braco', 'Menor Grilo', 'Braço direito', 2), C('olheiro', 'Fofão', 'Olheiro', 0), C('morador', 'Dona Cida', 'Associação de moradores', 3),
       C('advogado', 'Dr. Valter', 'Advogado', 3), C('fornecedor', 'Paraguaio', 'Fornecedor', 4), C('comprador', 'Doutor Lima', 'Comprador', 4), C('politico', 'Vereador Peixoto', 'Político', 4)],
-    goods: [{ id: 'carga', name: 'Carga', buy: 40, sell: 92 }, { id: 'pirata', name: 'Eletrônicos desviados', buy: 70, sell: 125 }],
+    goods: [
+      { id: 'comum', name: 'Carga comum', unit: 'un.', buy: 30, ref: 70, dem: 1.2, pref: { comunidade: 1.4, suburbio: 1.1, periferia: 1, nobre: .6, centro: 1, porto: .9 } },
+      { id: 'premium', name: 'Carga premium', unit: 'un.', buy: 95, ref: 200, dem: 0.33, pref: { nobre: 2.2, centro: 1.6, comunidade: .5, suburbio: .7, periferia: .4, porto: .9 } },
+      { id: 'eletro', name: 'Eletrônicos desviados', unit: 'un.', buy: 60, ref: 125, dem: 0.53, pref: { suburbio: 1.4, centro: 1.3, periferia: 1.1, comunidade: 1, nobre: .6, porto: 1.1 } },
+    ], shop: 'bancas',
     builds: [
       { id: 'baile', name: 'Baile da comunidade', desc: '+3 lealdade e +R$ 120 por dia', cost: 1800, eff: { loy: 3, inc: 120 } },
       { id: 'contencao', name: 'Contenção', desc: '+35% de defesa', cost: 1500, eff: { def: .35 } },
-      { id: 'boca', name: 'Ponto de venda', desc: '+R$ 150 por dia e +40 de venda', cost: 1200, eff: { inc: 150, cap: 40 } },
+      { id: 'boca', name: 'Ponto de venda', desc: '+70% de vendas na zona', cost: 1200, eff: { dem: .7 } },
       { id: 'social', name: 'Projeto social', desc: '+5 lealdade por dia', cost: 2200, eff: { loy: 5 } },
       { id: 'olheiros', name: 'Rede de olheiros', desc: 'Vê a tropa dos vizinhos, avisa ataque, +10% defesa', cost: 900, eff: { intel: 1, def: .1 } },
     ],
@@ -80,10 +91,14 @@ export const MODES = {
     words: { load: 'os botijões', cops: 'a investigação', money: 'o acerto', hood: 'a área', team: 'a patrulha' },
     contacts: [C('chefe', 'Sargento Brito', 'Seu chefe', 0, 4), C('braco', 'Cabo Moura', 'Braço direito', 2), C('olheiro', 'Tonhão', 'Informante', 0), C('morador', 'Dona Cida', 'Associação de moradores', 3),
       C('advogado', 'Dr. Valter', 'Advogado', 3), C('fornecedor', 'Distribuidora Rocha', 'Fornecedor', 4), C('comprador', 'Seu Arlindo', 'Comerciante', 4), C('politico', 'Vereador Peixoto', 'Político', 4)],
-    goods: [{ id: 'botijao', name: 'Botijões de gás', buy: 45, sell: 85 }, { id: 'sinal', name: 'Pontos de TV pirata', buy: 25, sell: 58 }],
+    goods: [
+      { id: 'gas', name: 'Botijões de gás', unit: 'bot.', buy: 55, ref: 100, dem: 0.9, pref: { periferia: 1.4, suburbio: 1.2, comunidade: 1.1, nobre: .3, centro: .5, porto: .6 } },
+      { id: 'tv', name: 'Assinaturas de gatonet', unit: 'ass.', buy: 18, ref: 50, dem: 1.35, pref: { suburbio: 1.3, periferia: 1.2, comunidade: 1.2, nobre: .5, centro: .6, porto: .7 } },
+      { id: 'agua', name: 'Galões de água', unit: 'gal.', buy: 6, ref: 16, dem: 3.3, pref: { periferia: 1.3, suburbio: 1.1, comunidade: 1.1, nobre: .6, centro: .7, porto: .8 } },
+    ], shop: 'pontos de serviço',
     builds: [
       { id: 'gas', name: 'Central de gás', desc: '+R$ 260 por dia, -1 lealdade', cost: 1600, eff: { inc: 260, loy: -1 } },
-      { id: 'net', name: 'Gatonet', desc: '+R$ 200 por dia e +30 de venda', cost: 1300, eff: { inc: 200, cap: 30 } },
+      { id: 'net', name: 'Central de serviços', desc: '+60% de vendas e +R$ 80 por dia', cost: 1300, eff: { dem: .6, inc: 80 } },
       { id: 'van', name: 'Ponto de van', desc: '+R$ 160 por dia, +1 lealdade', cost: 1400, eff: { inc: 160, loy: 1 } },
       { id: 'patrulha', name: 'Patrulha armada', desc: '+35% de defesa', cost: 1500, eff: { def: .35 } },
       { id: 'associacao', name: 'Associação de moradores', desc: '+5 lealdade, avisa ataque', cost: 2000, eff: { loy: 5, intel: 1 } },
@@ -105,7 +120,9 @@ export const MODES = {
     words: { load: 'o material apreendido', cops: 'a corregedoria', money: 'a verba', hood: 'o setor', team: 'a equipe' },
     contacts: [C('chefe', 'Coronel Andrade', 'Seu comandante', 0, 4), C('braco', 'Sargento Lopes', 'Braço direito', 2), C('olheiro', 'Informante X', 'Informante', 0), C('morador', 'Dona Cida', 'Associação de moradores', 3),
       C('advogado', 'Assessoria jurídica', 'Jurídico', 3), C('comprador', 'Leiloeiro Ramos', 'Leilão de apreensões', 4), C('politico', 'Secretário Paiva', 'Secretaria de Segurança', 4)],
-    goods: [{ id: 'apreensao', name: 'Material apreendido', buy: null, sell: 60 }],
+    goods: [
+      { id: 'apreensao', name: 'Material apreendido (leilão)', unit: 'lotes', buy: null, ref: 60, dem: 0.75, pref: {} },
+    ], shop: 'leilões',
     builds: [
       { id: 'base', name: 'Base comunitária', desc: '+30% de defesa, +3 lealdade', cost: 2000, eff: { def: .3, loy: 3 } },
       { id: 'cameras', name: 'Câmeras e inteligência', desc: 'Vê a tropa dos vizinhos, avisa ataque, +10% defesa', cost: 1200, eff: { intel: 1, def: .1 } },
@@ -130,11 +147,15 @@ export const MODES = {
     words: { load: 'o contrabando', cops: 'os Carabinieri', money: 'o envelope', hood: 'a cidade', team: 'os rapazes' },
     contacts: [C('chefe', 'Don Rubino', 'O chefe da família', 0, 4), C('braco', 'Salvo', 'Braço direito', 2), C('olheiro', 'Peppino', 'Olhos na rua', 0), C('morador', 'Padre Ignazio', 'Paróquia', 3),
       C('advogado', 'Avvocato Ferri', 'Advogado', 3), C('fornecedor', 'Il Marinaio', 'Contrabandista', 4), C('comprador', 'Signor Greco', 'Comprador', 4), C('politico', 'Assessore Lo Monte', 'Político', 4)],
-    goods: [{ id: 'contrabando', name: 'Contrabando', buy: 50, sell: 102 }, { id: 'cigarros', name: 'Cigarros sem selo', buy: 25, sell: 56 }],
+    goods: [
+      { id: 'cigarros', name: 'Cigarros de contrabando', unit: 'pct.', buy: 20, ref: 48, dem: 1.5, pref: { citta: 1.2, costa: 1.1, capitale: 1.4, campagna: .8 } },
+      { id: 'vinho', name: 'Vinho sem selo', unit: 'cx.', buy: 40, ref: 88, dem: 0.75, pref: { capitale: 1.5, costa: 1.3, citta: 1.1, campagna: .7 } },
+      { id: 'porto', name: 'Mercadoria do porto', unit: 'cx.', buy: 85, ref: 170, dem: 0.36, pref: { costa: 1.8, capitale: 1.6, citta: 1, campagna: .5 } },
+    ], shop: 'negócios',
     builds: [
       { id: 'cassino', name: 'Cassino clandestino', desc: '+R$ 320 por dia, +1 de pressão', cost: 2200, eff: { inc: 320, heat: 1 } },
       { id: 'ristorante', name: 'Restaurante de fachada', desc: '+R$ 140 por dia, -1 de pressão', cost: 1400, eff: { inc: 140, heat: -1 } },
-      { id: 'armazem', name: 'Armazém do porto', desc: '+60 de venda por dia', cost: 1600, eff: { cap: 60 } },
+      { id: 'armazem', name: 'Armazém do porto', desc: '+200 de depósito e +40% de vendas', cost: 1600, eff: { stor: 200, dem: .4 } },
       { id: 'chiesa', name: 'Doação à paróquia', desc: '+5 lealdade por dia', cost: 1800, eff: { loy: 5 } },
       { id: 'guardie', name: 'Guarda-costas', desc: '+35% de defesa, avisa ataque', cost: 1500, eff: { def: .35, intel: 1 } },
     ],

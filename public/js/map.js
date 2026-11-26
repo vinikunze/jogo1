@@ -1,5 +1,5 @@
 // Mapa: MapLibre com ruas reais (OpenFreeMap) e as zonas do jogo por cima.
-import { S, owned, colorOf, reach, visible, atkPow, estDef, odds, incOf, clamp } from './engine.js';
+import { S, owned, colorOf, reach, visible, atkPow, estDef, odds, incOf, clamp, canStart, comLevel } from './engine.js';
 
 const STYLE = 'https://tiles.openfreemap.org/styles/dark';
 const GLYPHS = 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf';
@@ -72,7 +72,7 @@ export function setView(v) { view = v; paint(); }
 const mix = (a, b, t) => { const p = h => [1, 3, 5].map(k => parseInt(h.slice(k, k + 2), 16)); const A = p(a), B = p(b); return '#' + A.map((v, k) => Math.round(v + (B[k] - v) * t).toString(16).padStart(2, '0')).join(''); };
 export function zoneStyle(i) {
   const g = S.G, d = g.d[i], o = d.o;
-  if (g.phase === 'setup') { const ok = S.MD.startPool(S.M.type[i]); return { c: ok ? '#d9a943' : '#000000', a: ok ? .5 : .5, fr: ok ? '#f8e09a' : null }; }
+  if (g.phase === 'setup') { if (o > 0) return { c: colorOf(o), a: .55, fr: null }; const ok = canStart(i); return { c: ok ? '#d9a943' : '#000000', a: ok ? .5 : .5, fr: ok ? '#f8e09a' : null }; }
   const rc = reach(i);
   const oc = rc ? odds(atkPow(Math.max(1, g.reserve)) / estDef(i))[1] : null;
   if (view === 'atk') {
@@ -111,9 +111,9 @@ function overlay() {
   const g = S.G, M = S.M, setup = g.phase === 'setup';
   const fc = {
     type: 'FeatureCollection', features: M.z.map((z, i) => {
-      const d = g.d[i], p = { n: z.n, ka: (setup && S.MD.startPool(M.type[i]) ? -1e9 : 0) - z.a, ic: '', k: 0 };
-      if (!setup) {
-        const vis = visible(i), txt = vis ? String(d.t) : '?';
+      const d = g.d[i], p = { n: z.n, ka: (setup && canStart(i) ? -1e9 : 0) - z.a, ic: '', k: 0 };
+      if (!setup || d.o > 0) {
+        const vis = setup || visible(i), txt = vis ? String(d.t) : '?';
         p.ic = `bd|${colorOf(d.o)}|${d.o === 0 ? d.b.length : 0}|${i === g.base ? 1 : 0}|${i === S.sel ? 1 : 0}|${txt}|${d.o === 0 ? '#ffffff' : '#e9e4da'}`;
         p.k = (i === S.sel ? -1e9 : 0) + (d.o === 0 ? -1e8 : 0) - z.a;
       }
