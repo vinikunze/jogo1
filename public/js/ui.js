@@ -257,7 +257,7 @@ function openPhone(app = 'home', chat = null) { phone = { open: true, app, chat 
 // ---------- geral ----------
 function refresh() {
   if (!S.G || $('#game').classList.contains('hide')) return;
-  renderHUD(); renderViews(); renderPanel(); MAP.paint(); renderPhone();
+  renderPhone(); renderHUD(); renderViews(); renderPanel(); MAP.paint();
 }
 function select(i) { S.sel = i; tab = 'z'; sfx.click(); $('#panel').classList.remove('min'); refresh(); }
 function enterGame() {
