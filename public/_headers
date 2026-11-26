@@ -1,5 +1,11 @@
-/maps/*
-  Cache-Control: public, max-age=86400
+/maps/
+  Cache-Control: no-cache
+
+/index.html
+  Cache-Control: no-cache
+
+/*
+  Cache-Control: public, max-age=604800, immutable
 
 /*
   X-Content-Type-Options: nosniff

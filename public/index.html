@@ -211,7 +211,7 @@ const COMUNIDADES=new Set(['Rocinha','Vidigal','Maré','Complexo do Alemão','Ja
 const PA_CIDADES=new Set(['Bagheria','Monreale','Carini','Partinico','Termini Imerese','Cefalù','Misilmeri','Corleone','Villabate','Caccamo']);
 const PA_COSTA=new Set(['Isola delle Femmine','Capaci','Cinisi','Terrasini','Trappeto','Balestrate','Ficarazzi','Santa Flavia','Casteldaccia','Altavilla Milicia','Trabia','Campofelice di Roccella','Lascari','Pollina']);
 const ZL={centro:'Centro',sul:'Zona Sul',norte:'Zona Norte',oeste:'Zona Oeste',sudoeste:'Zona Sudoeste'};
-const MAPS={};
+const MAPS={},DATA_V='3';
 function derive(J,id){
   J.id=id;J.N=J.f.length;J.type=[];J.val=[];J.dm=[];J.tag=[];J.gar=[];
   J.f.forEach(f=>{
@@ -230,7 +230,7 @@ function derive(J,id){
 }
 async function loadMap(id){
   if(MAPS[id])return MAPS[id];
-  const r=await fetch('maps/'+id+'.json');if(!r.ok)throw new Error('mapa');
+  const r=await fetch('maps/'+id+'.json?v='+DATA_V);if(!r.ok)throw new Error('mapa');
   const J=await r.json();derive(J,id);MAPS[id]=J;return J;
 }
 
