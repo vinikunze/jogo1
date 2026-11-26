@@ -1,4 +1,10 @@
-import json, math, sys
+import json, math, sys, os
+
+# Fontes (baixe para tools/data/):
+#  - bairros-rj: public/data/places.json do projeto github.com/ludobegins/bairros-rj (IPP/PCRJ + IBGE)
+#  - openpolis/geojson-italy: geojson/limits_P_82_municipalities.geojson (ISTAT, CC-BY)
+DATA = os.environ.get('DATA', os.path.join(os.path.dirname(__file__), 'data'))
+OUT = os.environ.get('OUT', os.path.join(os.path.dirname(__file__), '..', 'public', 'maps'))
 from collections import defaultdict
 
 def ring_area(r):
@@ -85,6 +91,19 @@ class Proj:
         s.W = W; s.H = (lat1 - lat0) * s.sc
     def __call__(s, lon, lat):
         return ((lon - s.lon0) * s.k * s.sc, (s.lat1 - lat) * s.sc)
+    def inv(s, x, y):
+        return (round(x / (s.k * s.sc) + s.lon0, 5), round(s.lat1 - y / s.sc, 5))
+
+def geo(P, polys):
+    out = []
+    for poly in polys:
+        rr = []
+        for r in poly:
+            q = [list(P.inv(x, y)) for x, y in r]
+            if q[0] != q[-1]: q.append(q[0])
+            if len(q) >= 4: rr.append(q)
+        if rr: out.append(rr)
+    return out
 
 def components(n, adj):
     seen = [-1] * n; comps = []
@@ -98,9 +117,9 @@ def components(n, adj):
         comps.append(c)
     return comps
 
-def link_components(polys_list, adj, labels):
+def link_components(_, adj, labels):
     links = []
-    n = len(polys_list)
+    n = len(labels)
     while True:
         comps = components(n, adj)
         if len(comps) == 1: break
@@ -117,7 +136,7 @@ def link_components(polys_list, adj, labels):
 
 # ---------------- RIO ----------------
 def build_rio():
-    T = json.load(open('/home/claude/ludobegins/bairros-rj/public/data/places.json'))
+    T = json.load(open(os.path.join(DATA, 'places.json')))
     sx, sy = T['transform']['scale']; tx, ty = T['transform']['translate']
     arcs = []
     for a in T['arcs']:
@@ -155,22 +174,22 @@ def build_rio():
         for k in arcset(g): owners[k].add(i)
         lab, rad = label_point(pp)
         area = sum(abs(ring_area(poly[0])) for poly in pp)
-        feats.append({'n': g['properties']['name'], 'z': g['properties'].get('zone', ''), 'd': path(pp), 'l': [round(lab[0], 1), round(lab[1], 1)], 'r': round(rad, 1), 'a': round(area)})
+        feats.append({'n': g['properties']['name'], 'z': g['properties'].get('zone', ''), 'g': geo(P, pp), 'l': list(P.inv(*lab)), 'xy': lab, 'a': round(area)})
     adj = [set() for _ in nb]
     for k, s in owners.items():
         s = list(s)
         for a in s:
             for b in s:
                 if a != b: adj[a].add(b)
-    links = link_components([f['d'] for f in feats], adj, [f['l'] for f in feats])
-    bg = [path(proj(geom(g))) for g in mun]
-    out = {'city': 'Rio de Janeiro', 'W': 1600, 'H': round(P.H), 'f': feats, 'adj': [sorted(a) for a in adj], 'links': links, 'bg': bg,
+    links = link_components(None, adj, [f['xy'] for f in feats])
+    for f in feats: del f['xy']
+    out = {'city': 'Rio de Janeiro', 'bounds': [round(lon0, 4), round(lat0, 4), round(lon1, 4), round(lat1, 4)], 'f': feats, 'adj': [sorted(a) for a in adj], 'links': links,
            'credit': 'Bairros: Instituto Pereira Passos, PCRJ · Municípios: IBGE'}
     return out
 
 # ---------------- PALERMO ----------------
 def build_palermo():
-    D = json.load(open('/home/claude/geo/limits_P_82_municipalities.geojson'))
+    D = json.load(open(os.path.join(DATA, 'limits_P_82_municipalities.geojson')))
     feats_raw = [f for f in D['features'] if f['properties']['name'] != 'Ustica']
     def polys_of(g):
         return g['coordinates'] if g['type'] == 'MultiPolygon' else [g['coordinates']]
@@ -227,33 +246,19 @@ def build_palermo():
         pp = [poly for poly in pp if poly]
         lab, rad = label_point(pp)
         area = sum(abs(ring_area(poly[0])) for poly in pp)
-        feats.append({'n': f['properties']['name'], 'z': '', 'd': path(pp), 'l': [round(lab[0], 1), round(lab[1], 1)], 'r': round(rad, 1), 'a': round(area)})
-    links = link_components(None if False else [0] * len(feats), adj, [f['l'] for f in feats])
-    # background: other Sicilian provinces
-    PR = json.load(open('/home/claude/geo/limits_IT_provinces.geojson'))
-    bg = []
-    for f in PR['features']:
-        pr = f['properties']
-        if str(pr.get('reg_istat_code')) not in ('19',) or pr.get('prov_istat_code_num') == 82: continue
-        polys = polys_of(f['geometry'])
-        pp = []
-        for poly in polys:
-            rr = []
-            for r in poly:
-                q = dp([P(*p) for p in r], 2.0)
-                if len(q) >= 3: rr.append(q)
-            if rr: pp.append(rr)
-        bg.append(path(pp, 0))
-    out = {'city': 'Palermo', 'W': 1600, 'H': round(P.H), 'f': feats, 'adj': [sorted(a) for a in adj], 'links': links, 'bg': bg,
+        feats.append({'n': f['properties']['name'], 'z': '', 'g': geo(P, pp), 'l': list(P.inv(*lab)), 'xy': lab, 'a': round(area)})
+    links = link_components(None, adj, [f['xy'] for f in feats])
+    for f in feats: del f['xy']
+    out = {'city': 'Palermo', 'bounds': [round(lon0, 4), round(lat0, 4), round(lon1, 4), round(lat1, 4)], 'f': feats, 'adj': [sorted(a) for a in adj], 'links': links,
            'credit': 'Limites: ISTAT (CC-BY), via openpolis'}
     return out
 
 if __name__ == '__main__':
     import os
-    os.makedirs('/home/claude/dono-da-cidade/maps', exist_ok=True)
+    os.makedirs(OUT, exist_ok=True)
     for name, fn in [('rio', build_rio), ('palermo', build_palermo)]:
         o = fn()
         s = json.dumps(o, ensure_ascii=False, separators=(',', ':'))
-        open(f'/home/claude/dono-da-cidade/maps/{name}.json', 'w').write(s)
+        open(f'{OUT}/{name}.json', 'w').write(s)
         deg = [len(a) for a in o['adj']]
-        print(name, len(o['f']), 'H', o['H'], 'size', len(s) // 1024, 'KB', 'links', o['links'], 'min deg', min(deg), 'isolated', [o['f'][i]['n'] for i, d in enumerate(deg) if d == 0])
+        print(name, len(o['f']), 'size', len(s) // 1024, 'KB', 'links', o['links'], 'min deg', min(deg), 'isolated', [o['f'][i]['n'] for i, d in enumerate(deg) if d == 0])
