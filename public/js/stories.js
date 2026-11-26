@@ -1,7 +1,7 @@
 // Dinâmica da cidade: histórias com escolhas (vários dias), eventos grandes,
 // objetivos da semana, confiança dos contatos e personalidade dos rivais.
 import {
-  S, R, RI, pick, sum, clamp, fmt, owned, can, msg, log, addXP, addRel, rel, rankName, oname, intelAt, pTroops, emit,
+  S, R, RI, pick, sum, clamp, fmt, owned, can, msg, log, addXP, addRel, rel, rankName, oname, intelAt, pTroops, emit, addBuf, arrest,
 } from './engine.js';
 
 const zn = i => S.M.z[i].n;
@@ -274,6 +274,169 @@ const STORIES = [
       },
     },
   },
+  // ---------- exclusivas de cada modo ----------
+  {
+    id: 'baile', min: 1, weight: 3, modes: ['faccao'],
+    init(d) { const m = owned(0).filter(i => S.M.type[i] === 'comunidade'); const c = m.length ? m : owned(0); if (!c.length) return false; d.z = pick(c); return true; },
+    steps: {
+      a: {
+        from: () => can('build') ? 'morador' : 'chefe',
+        text: d => `A rapaziada quer fazer um baile grande em ${zn(d.z)} no sábado. Se bancar, vem gente da cidade toda.`,
+        opts: d => [
+          { l: `Bancar o baile completo (${fmt(2000)})`, fx(g) { if (g.money < 2000) return { say: 'Sem caixa pro baile grande. Faz o pequeno então.', next: 'a', delay: 0 }; g.money -= 2000; addBuf({ dem: 1.8 }, 2, 'Baile lotado'); g.d[d.z].l = clamp(g.d[d.z].l + 12, 0, 100); g.heat = Math.min(100, g.heat + 10); addXP(60); return { say: `Baile marcado. Pelos próximos 2 dias as bancas vão vender quase o dobro, e ${zn(d.z)} vai lembrar de você.`, end: 1 }; } },
+          { l: `Baile de rua, simples (${fmt(600)})`, fx(g) { if (g.money < 600) return { say: 'Nem isso? Fica pra próxima.', end: 1 }; g.money -= 600; addBuf({ dem: 1.3 }, 2, 'Baile de rua'); g.d[d.z].l = clamp(g.d[d.z].l + 5, 0, 100); addXP(25); return { say: 'Paredão na rua e o povo feliz. Vendas um pouco acima por 2 dias.', end: 1 }; } },
+          { l: 'Sem baile essa semana', fx(g) { g.d[d.z].l = clamp(g.d[d.z].l - 8, 0, 100); return { say: 'A rapaziada ficou chateada.', end: 1 }; } },
+        ],
+        timeout(g, d) { g.d[d.z].l = clamp(g.d[d.z].l - 5, 0, 100); },
+      },
+    },
+  },
+  {
+    id: 'fuga', min: 2, weight: 2, modes: ['faccao'],
+    init(d) { d.n = pickNames(1)[0]; return true; },
+    steps: {
+      a: {
+        from: () => 'braco',
+        text: d => `O ${d.n} mandou recado lá de dentro. Com ${fmt(3000)} pros contatos certos ele sai e volta pra rua com a gente. Ele é dos bons.`,
+        opts: d => [
+          { l: `Mandar o dinheiro (${fmt(3000)})`, fx(g) { if (g.money < 3000) return { say: 'Sem os 3 mil não rola.', end: 1 }; g.money -= 3000; return { say: 'Dinheiro enviado. Agora é esperar.', next: 'b', delay: 1 }; } },
+          { l: 'Agora não dá', fx() { addRel('braco', -6); return { say: 'Ele vai entender. Ou não.', end: 1 }; } },
+        ],
+        timeout() { addRel('braco', -4); },
+      },
+      b: {
+        from: () => 'braco',
+        text: d => { d.ok = Math.random() < .65; return d.ok ? `O ${d.n} tá na rua! Chegou com mais uns amigos que saíram junto.` : `Deu errado. Pegaram o ${d.n} na saída e o caso foi parar na TV.`; },
+        opts: d => [{ l: d.ok ? 'Bem-vindo de volta' : 'Que azar', fx(g) { if (d.ok) { const n = RI(6, 9); if (can('crew')) g.reserve += n; else g.d[g.base].t += n; addRel('braco', 10); addXP(80); log(`${d.n} voltou para ${g.pname} com mais ${n}.`, 'good'); return { say: `+${n} na tropa, gente experiente.`, end: 1 }; } g.heat = Math.min(100, g.heat + 15); return { say: 'Os 3 mil foram embora e a pressão subiu.', end: 1 }; } }],
+      },
+    },
+  },
+  {
+    id: 'desertor', min: 2, weight: 2, modes: ['faccao', 'milicia'],
+    init(d) { const k = alive().filter(k => owned(k + 1).length); if (!k.length) return false; d.r = pick(k); d.n = pickNames(1)[0]; d.trap = Math.random() < .25; return true; },
+    steps: {
+      a: {
+        from: () => 'olheiro',
+        text: d => `O ${d.n}, que é homem de confiança de ${rivalName(d.r)}, quer mudar de lado. Diz que traz gente e conta tudo que eles planejam.`,
+        opts: d => [
+          { l: 'Aceitar ele e o grupo', fx(g) { if (d.trap) { const z = g.base, l = Math.min(g.d[z].t - 1, RI(4, 7)); g.d[z].t -= l; g.heat = Math.min(100, g.heat + 5); log(`${d.n} era armação de ${rivalName(d.r)}.`, 'bad'); return { say: `Era armação. O ${d.n} abriu a porta pra ${rivalName(d.r)} e a base perdeu ${l}.`, end: 1 }; } const n = RI(5, 8); if (can('crew')) g.reserve += n; else g.d[g.base].t += n; g.double = g.day + 5; owned(d.r + 1).slice(0, 2).forEach(i => { g.seen[i] = g.day + 5; }); addXP(60); return { say: `Chegou com ${n} e abriu o jogo: agora a gente vê a tropa deles e sabe quando vão atacar, por 5 dias.`, end: 1 }; } },
+          { l: `Pagar pra ele ficar lá e passar informação (${fmt(1500)})`, fx(g) { if (g.money < 1500) return { say: 'Sem caixa pra isso.', end: 1 }; g.money -= 1500; g.double = g.day + 8; owned(d.r + 1).forEach(i => { g.seen[i] = g.day + 8; }); addXP(50); return { say: `Agora a gente tem um homem dentro de ${rivalName(d.r)} por 8 dias.`, end: 1 }; } },
+          { l: 'Não confio', fx: () => ({ say: 'Melhor prevenir.', end: 1 }) },
+        ],
+      },
+    },
+  },
+  {
+    id: 'comerciante', min: 1, weight: 3, modes: ['milicia', 'mafia'],
+    init(d) { const m = owned(0); if (!m.length) return false; d.z = pick(m); d.n = mode() === 'mafia' ? pick(['Signor Caruso', 'la signora Russo', 'Signor Vitale', 'il fornaio Lombardo']) : pick(['Seu Juarez da padaria', 'Dona Rosa do mercadinho', 'o Português do açougue', 'Seu Nilton da farmácia']); return true; },
+    steps: {
+      a: {
+        from: () => can('crew') ? 'braco' : 'chefe',
+        text: d => mode() === 'mafia' ? `${d.n}, em ${zn(d.z)}, não paga mais o pizzo e ainda falou que vai procurar os Carabinieri.` : `${d.n}, em ${zn(d.z)}, disse que não paga mais a taxa de segurança. Os outros estão olhando pra ver no que dá.`,
+        opts: d => [
+          { l: 'Dar um recado firme', fx(g) { const v = RI(12, 20) * 100; g.money += v; g.d[d.z].l = clamp(g.d[d.z].l - 10, 0, 100); g.heat = Math.min(100, g.heat + 8); addXP(30); return { say: `Recado dado. Ele pagou o atrasado e o resto da rua entendeu: +${fmt(v)}. Mas o clima ficou pesado.`, end: 1 }; } },
+          { l: 'Perdoar este mês', fx(g) { g.d[d.z].l = clamp(g.d[d.z].l + 6, 0, 100); addRel('morador', 6); addRel('chefe', -4); return { say: 'Ele agradeceu. Tem gente achando que você amoleceu.', end: 1 }; } },
+          { l: mode() === 'mafia' ? `Comprar a loja dele (${fmt(3000)})` : `Virar sócio do negócio (${fmt(3000)})`, fx(g) { if (g.money < 3000) return { say: 'Sem caixa pra isso.', end: 1 }; g.money -= 3000; g.rent = (g.rent || 0) + 220; g.d[d.z].l = clamp(g.d[d.z].l + 4, 0, 100); addXP(50); log(`Negócio próprio em ${zn(d.z)}: +${fmt(220)} por dia.`, 'good'); return { say: `Agora o negócio é nosso. Rende ${fmt(220)} por dia, todo dia.`, end: 1 }; } },
+        ],
+        timeout(g, d) { g.d[d.z].l = clamp(g.d[d.z].l - 4, 0, 100); g.money -= 400; },
+      },
+    },
+  },
+  {
+    id: 'vereador', min: 3, weight: 2, modes: ['milicia'],
+    init: () => true,
+    steps: {
+      a: {
+        from: () => can('market') ? 'politico' : 'advogado',
+        text: () => 'Ano de eleição. Tenho um candidato a vereador que precisa dos votos das nossas áreas. Em troca ele segura investigação contra a gente.',
+        opts: () => [
+          { l: `Apoiar o candidato (${fmt(2500)})`, fx(g) { if (g.money < 2500) return { say: 'Sem caixa pra campanha.', end: 1 }; g.money -= 2500; addBuf({ raid: .6 }, 14, 'Vereador aliado'); g.heat = Math.max(0, g.heat - 15); addXP(60); return { say: 'Fechado. Pelos próximos 14 dias as operações contra a gente vão ser bem menos frequentes.', end: 1 }; } },
+          { l: `Lançar candidato próprio (${fmt(6000)})`, fx(g) { if (g.money < 6000) return { say: 'Campanha própria precisa de 6 mil.', end: 1 }; g.money -= 6000; return { say: 'Campanha na rua. Em 3 dias sai o resultado.', next: 'b', delay: 3 }; } },
+          { l: 'Política não é com a gente', fx: () => ({ say: 'Depois não reclama.', end: 1 }) },
+        ],
+      },
+      b: {
+        from: () => can('market') ? 'politico' : 'advogado',
+        text: d => { d.ok = Math.random() < .55 + owned(0).length / S.M.N; return d.ok ? 'Eleito! Agora a gente tem cadeira na Câmara.' : 'Perdeu por pouco. E a imprensa descobriu de onde vinha o dinheiro da campanha.'; },
+        opts: d => [{ l: 'Ok', fx(g) { if (d.ok) { addBuf({ raid: .5, pol: .7 }, 30, 'Vereador da casa'); addXP(150); return { say: 'Por 30 dias: menos operações e acertos mais baratos.', end: 1 }; } g.heat = Math.min(100, g.heat + 15); return { say: 'Prejuízo e pressão subindo.', end: 1 }; } }],
+      },
+    },
+  },
+  {
+    id: 'refem', min: 1, weight: 2, modes: ['policia'],
+    init(d) { const m = owned(0); if (!m.length) return false; d.z = pick(m); return true; },
+    steps: {
+      a: {
+        from: () => 'chefe',
+        text: d => `Assalto com reféns num mercado em ${zn(d.z)}. A imprensa já está toda lá. Qual é a ordem?`,
+        opts: d => [
+          { l: 'Negociar com calma', fx() { return { say: 'Negociador a caminho. Amanhã cedo a gente sabe.', next: 'b', delay: 1 }; } },
+          { l: 'Invadir com o grupo tático', fx(g) { if (Math.random() < .55) { g.heat = Math.max(0, g.heat - 20); addRel('chefe', 6); addXP(120); return { say: 'Entrada perfeita. Reféns salvos e o vídeo rodou o país.', end: 1 }; } g.heat = Math.min(100, g.heat + 25); addRel('chefe', -10); return { say: 'A invasão deu errado e a mídia caiu em cima. Ninguém se feriu gravemente, mas a imagem foi pro chão.', end: 1 }; } },
+        ],
+        timeout(g) { g.heat = Math.min(100, g.heat + 15); },
+      },
+      b: {
+        from: () => 'chefe',
+        text: d => { d.ok = Math.random() < .8; return d.ok ? 'Os assaltantes se renderam de madrugada. Todos os reféns saíram bem.' : 'A negociação demorou demais e a imprensa chamou de fraqueza.'; },
+        opts: d => [{ l: 'Ok', fx(g) { if (d.ok) { g.heat = Math.max(0, g.heat - 15); g.d[d.z].l = clamp(g.d[d.z].l + 10, 0, 100); addXP(90); return { say: 'Elogio público do governador.', end: 1 }; } g.heat = Math.min(100, g.heat + 10); return { say: 'Faz parte.', end: 1 }; } }],
+      },
+    },
+  },
+  {
+    id: 'secretario', min: 2, weight: 2, modes: ['policia'],
+    init(d) { const g = S.G, t = owned(0).flatMap(i => S.M.adj[i]).filter(j => g.d[j].o > 0); if (!t.length) return false; d.z = pick(t); return true; },
+    steps: {
+      a: {
+        from: () => can('market') ? 'politico' : 'chefe',
+        text: d => `O governo quer uma resposta. Ocupe ${zn(d.z)} em até 5 dias e eu libero verba extra para a sua unidade.`,
+        opts: () => [
+          { l: 'Missão aceita', fx(g, d) { d.until = g.day + 5; return { say: 'Conto com você. Em 5 dias eu cobro.', next: 'b', delay: 5 }; } },
+          { l: 'Não temos efetivo para isso', fx() { addRel('chefe', -4); return { say: 'Entendido. Vou procurar outra unidade.', end: 1 }; } },
+        ],
+      },
+      b: {
+        from: () => can('market') ? 'politico' : 'chefe',
+        text: d => { d.ok = S.G.d[d.z].o === 0; return d.ok ? `${zn(d.z)} ocupada dentro do prazo. A verba está liberada.` : `O prazo para ${zn(d.z)} acabou e nada. O governador não gostou.`; },
+        opts: d => [{ l: 'Ok', fx(g) { if (d.ok) { g.money += 5000; g.bonusSP = (g.bonusSP || 0) + 1; addXP(150); return { say: `${fmt(5000)} de verba e 1 ponto de habilidade.`, end: 1 }; } addRel('chefe', -10); g.heat = Math.min(100, g.heat + 10); return { say: 'Fica pra próxima. Mas ficou anotado.', end: 1 }; } }],
+      },
+    },
+  },
+  {
+    id: 'pentito', min: 2, weight: 2, modes: ['mafia'],
+    init(d) { d.n = pickNames(1)[0]; return true; },
+    steps: {
+      a: {
+        from: () => 'advogado',
+        text: d => `Pegaram o ${d.n}. O promotor está oferecendo proteção se ele falar sobre a família. Ele ainda não decidiu.`,
+        opts: d => [
+          { l: `Pagar a defesa e cuidar da família dele (${fmt(4000)})`, fx(g) { if (g.money < 4000) return { say: 'Sem esse dinheiro ele vai acabar falando.', next: 'a', delay: 0 }; g.money -= 4000; addRel('braco', 10); addXP(70); return { say: 'Ele mandou dizer que a família vem primeiro. Não vai abrir a boca.', end: 1 }; } },
+          { l: `Tirar ele do país (${fmt(2000)})`, fx(g) { if (g.money < 2000) return { say: 'Nem isso tem no caixa.', end: 1 }; g.money -= 2000; if (Math.random() < .7) { addXP(50); return { say: 'Ele está num navio para a América. Problema resolvido.', end: 1 }; } g.heat = Math.min(100, g.heat + 25); return { say: 'Pegaram ele no porto. Agora a polícia sabe que a gente tentou.', end: 1 }; } },
+          { l: 'Ele não sabe de nada', fx() { return { say: 'Espero que você esteja certo.', next: 'b', delay: 2 }; } },
+        ],
+        timeout(g) { if (Math.random() < .4) g.heat = Math.min(100, g.heat + 20); },
+      },
+      b: {
+        from: () => 'advogado',
+        text: d => { d.talk = Math.random() < .55; return d.talk ? `O ${d.n} falou. Os jornais estão chamando de o novo pentito.` : `O ${d.n} ficou quieto. Honra até o fim.`; },
+        opts: d => [{ l: 'Ok', fx(g) { if (d.talk) { g.heat = Math.min(100, g.heat + 30); arrest(null, 3); return { say: 'A pressão explodiu.', end: 1 }; } addXP(40); return { say: 'Sorte nossa.', end: 1 }; } }],
+      },
+    },
+  },
+  {
+    id: 'appalto', min: 3, weight: 2, modes: ['mafia'],
+    init: () => true,
+    steps: {
+      a: {
+        from: () => can('market') ? 'politico' : 'advogado',
+        text: () => `Vai sair a licitação da nova estrada. Com ${fmt(5000)} para o assessor certo, a obra é da família e rende todo mês.`,
+        opts: () => [
+          { l: `Pagar o assessor (${fmt(5000)})`, fx(g) { if (g.money < 5000) return { say: 'Sem os 5 mil a obra vai pra outro.', end: 1 }; g.money -= 5000; if (Math.random() < .7) { g.rent = (g.rent || 0) + 450; addXP(120); log(`A obra pública rende ${fmt(450)} por dia.`, 'good'); return { say: `A obra é nossa. ${fmt(450)} por dia entrando, limpinho.`, end: 1 }; } g.heat = Math.min(100, g.heat + 15); return { say: 'A Guardia di Finanza estava de olho no assessor. Dinheiro perdido e pressão subindo.', end: 1 }; } },
+          { l: 'Entrar na licitação sem pagar ninguém', fx(g) { if (Math.random() < .25) { g.rent = (g.rent || 0) + 300; addXP(80); return { say: `Ganhamos no preço. ${fmt(300)} por dia.`, end: 1 }; } return { say: 'Perdemos para uma empresa com amigos melhores.', end: 1 }; } },
+          { l: 'Passar', fx: () => ({ say: 'Outro pega.', end: 1 }) },
+        ],
+      },
+    },
+  },
 ];
 
 function guess(g, d, i) {
@@ -360,6 +523,7 @@ function objTick(end, rep) {
 // ---------------- relações e rivais ----------------
 function relationTick(rep) {
   const g = S.G;
+  if (g.rent) { g.money += g.rent; g.extra = (g.extra || 0) + g.rent; rep && rep.push(['good', mode() === 'policia' ? 'Convênios' : 'Negócios próprios', '+' + fmt(g.rent)]); }
   if (g.rank >= 2 && rel('braco') <= 20 && Math.random() < .2) { const v = Math.round(g.money * .12); g.money -= v; addRel('braco', 5); log(`Sumiram ${fmt(v)} do caixa. O braço direito anda estranho.`, 'bad'); rep && rep.push(['bad', 'Dinheiro sumido do caixa', '-' + fmt(v)]); }
   if (g.rank < 5 && rel('chefe') >= 85 && Math.random() < .15) { const v = RI(8, 15) * 100; g.money += v; msg('chefe', `Tá fazendo bonito. Toma ${fmt(v)} de agrado.`); }
   if (g.rank < 5 && rel('chefe') <= 15 && Math.random() < .25) { g.xp = Math.max(0, g.xp - 80); msg('chefe', 'Tô de olho em você. Do jeito que tá, não sobe mais aqui dentro.'); addRel('chefe', 5); }

@@ -1,5 +1,5 @@
 // Interface: menu, HUD, painel, celular (WhatsApp), diálogos e som.
-import { MODES, SOON, XP, UNLOCK, SKILLS, ACH, ZT, TIERS } from './data.js';
+import { MODES, SOON, XP, UNLOCK, SKILLS, ACH, ZT, TIERS, FINALS } from './data.js';
 import {
   S, A, SAVE, store, fmt, sum, clamp, R, loadMap, mapsLoaded, newGame, resume, startAt, owned, colorOf, oname, sk, rankName, can, unlockRank,
   skillPoints, pTroops, pq, defVal, incOf, pIncome, upkeep, maxActs, reach, recruitCost, bribeCost, visible, est, estDef, odds, atkPow, bOf,
@@ -70,9 +70,10 @@ S.on = {
   ach: a => { result('Conquista', `${a.name}: ${a.desc}`, 'good'); sfx.win(); },
   jail: days => dialog(`<h2 style="color:var(--bad)">${S.MD.budget ? 'Afastado do comando' : 'Você foi preso'}</h2><p class="note">${S.MD.budget ? 'A corregedoria te afastou' : 'A operação te pegou'} por ${days} dias. Enquanto isso o seu braço direito comanda os ataques. Pelo celular você ainda fala com todo mundo, compra e vende. O advogado pode cortar o tempo pela metade.</p><button class="gold btn" data-g="close">Entendi</button>`),
   cityEvent: c => dialog(`<h2 style="color:var(--g1)">${esc(c.name)}</h2><p class="note">${esc(c.text)}</p><p class="note">Vale até o dia ${c.until}.</p><button class="gold btn" data-g="close">Entendi</button>`),
+  final: f => { const F = FINALS[S.G.mode]; sfx.lose(); dialog(`<h2 style="color:var(--bad)">${esc(F.name)}</h2><p class="note">Os rivais se uniram contra ${esc(S.G.pname)}. Até o fim do dia ${f.until} eles vão atacar juntos e com mais força.</p><ul class="rep"><li><span>Para vencer</span><b>Segurar ${Math.round(E.FIN_HOLD * 100)}% e a sua base</b></li><li><span>Ou</span><b>Chegar a ${Math.round(goal * 100)}% do mapa</b></li></ul><p class="note">Tem uma escolha esperando no celular.</p><div class="row"><button class="ghost btn" data-g="close">Fechar</button><button class="gold btn" data-g="zapnow">Abrir celular</button></div>`); },
   over: k => {
-    const win = k === 'win'; win ? sfx.win() : sfx.lose();
-    dialog(`<h2 style="color:${win ? 'var(--g1)' : 'var(--bad)'}">${win ? 'A cidade é sua' : 'Fim da linha'}</h2><p class="note">${esc(S.G.why)}</p>
+    const win = k === 'win'; win ? sfx.win() : sfx.lose(); const F = FINALS[S.G.mode];
+    dialog(`${win ? `<small class="note" style="letter-spacing:.14em;text-transform:uppercase">Final</small>` : ''}<h2 style="color:${win ? 'var(--g1)' : 'var(--bad)'}">${win ? esc(F.title) : 'Fim da linha'}</h2>${win ? `<p class="note" style="color:var(--ink)">${esc(F.epi)}</p>` : ''}<p class="note">${esc(S.G.why)}</p>
       <ul class="rep"><li><span>Cargo final</span><b>${esc(rankName())}</b></li><li><span>Zonas tomadas</span><b>${S.G.stats.won}</b></li><li><span>Conquistas</span><b>${Object.keys(S.G.ach).length} de ${ACH.length}</b></li><li><span>Pontuação</span><b style="color:var(--g1)">${S.G.score || 0}</b></li></ul>
       <button class="gold btn" data-g="menu">Voltar ao menu</button>`);
   },
@@ -89,8 +90,9 @@ function renderHUD() {
   <div class="stat"><small>Tropa · base</small><strong>${pTroops()} · ${g.reserve}</strong></div>
   <div class="stat"><small>Fuzis · pistolas</small><strong>${g.rif} · ${g.pis}</strong></div>
   <div class="stat"><small>${S.MD.heat}</small><div class="bar"><i style="width:${g.heat}%;background:${hc}"></i></div></div>
-  <div class="stat"><small>Domínio ${share}%</small><div class="bar"><i style="width:${Math.min(100, share / goal)}%;background:var(--gold)"></i></div></div>
+  <div class="stat" title="Ao chegar em ${Math.round(E.FIN_AT * 100)}% começa a reta final"><small>Domínio ${share}%${share < E.FIN_AT * 100 ? ` · meta ${Math.round(E.FIN_AT * 100)}%` : ''}</small><div class="bar"><i style="width:${Math.min(100, share / E.FIN_AT)}%;background:var(--gold)"></i></div></div>
   ${E.jailed() ? `<div class="stat"><small>${S.MD.budget ? 'Afastado' : 'Preso'}</small><strong style="color:var(--bad)">até o dia ${g.jail.until}</strong></div>` : ''}
+  ${E.finOn() ? `<div class="stat"><small>${esc(FINALS[g.mode].name)}</small><strong style="color:var(--bad)">até o dia ${g.fin.until}</strong></div>` : ''}
   ${g.cev && g.cev.until >= g.day ? `<div class="stat"><small>Evento</small><strong style="color:var(--g1)">${esc(g.cev.name)} · ${g.cev.until - g.day + 1}d</strong></div>` : ''}
   <div class="stat"><small>Ações</small><div class="dots">${Array.from({ length: maxActs() }, (_, k) => `<i class="${k < g.acts ? 'on' : ''}"></i>`).join('')}</div></div>`}</div>
   ${ph ? '' : `<button class="hbtn phone ${ur ? 'pulse' : ''}" data-g="phone" aria-label="Celular">${I.phone}${ur ? `<span class="badge">${ur}</span>` : ''}</button>`}
@@ -138,6 +140,20 @@ function jailCard() {
   return `<div class="career" style="background:rgba(255,91,79,.08);border-color:rgba(255,91,79,.35)"><small class="note">${S.MD.budget ? 'Afastado' : 'Preso'} até o dia ${g.jail.until}</small><br><strong style="font-size:17px">Seu braço direito comanda os ataques. Você segue no celular.</strong>
     <button class="ghost btn act" data-a="lawyer" style="margin:10px 0 0" ${g.money >= 5000 ? '' : 'disabled'}><span>Pagar o advogado<small>Corta o tempo pela metade</small></span><em>${fmt(5000)}</em></button></div>`;
 }
+function tutCard() {
+  if (!E.tutShow()) return '';
+  const g = S.G, L = E.tutList(), done = L.filter(x => g.tut.d[x.k]).length;
+  return `<div class="career tut"><div style="display:flex;justify-content:space-between;align-items:center"><small class="note">Primeiros passos · ${done} de ${L.length}</small><button class="link" data-a="tutoff">pular</button></div>
+    <ul class="steps">${L.map(x => `<li class="${g.tut.d[x.k] ? 'ok' : ''}"><i></i>${esc(x.t)}</li>`).join('')}</ul><p class="note" style="margin:6px 0 0">Cada passo vale 20 de respeito. Completou tudo, ganha ${fmt(1000)}.</p></div>`;
+}
+function finCard() {
+  if (!E.finOn()) return '';
+  const g = S.G, F = FINALS[g.mode], share = owned(0).length / S.M.N, left = g.fin.until - g.day + 1, ok = share >= E.FIN_HOLD && g.d[g.base].o === 0;
+  return `<div class="career fin"><small class="note">${esc(F.name)} · ${left > 1 ? `faltam ${left} dias` : 'último dia'}</small><br><strong style="font-size:17px">Segure ${Math.round(E.FIN_HOLD * 100)}% do mapa e a sua base até o fim do dia ${g.fin.until}</strong>
+    <div class="meter"><i style="width:${Math.round(clamp(share / E.FIN_AT, 0, 1) * 100)}%;background:${ok ? 'var(--ok)' : 'var(--bad)'}"></i></div>
+    <p class="note" style="margin:6px 0 0">Você tem ${Math.round(share * 100)}% agora. ${ok ? 'Por enquanto está segurando.' : '<strong style="color:var(--bad)">Abaixo do mínimo: retome zonas.</strong>'} Os rivais estão unidos e atacam mais. Com ${Math.round(goal * 100)}% a vitória é na hora.</p></div>`;
+}
+function buffList() { const b = E.buffs(); return b.length ? `<div class="buffs">${b.map(x => `<span class="chip">${esc(x.name)} · até o dia ${x.until}</span>`).join('')}</div>` : ''; }
 function objCard() {
   const o = ST.objProgress(); if (!o) return '';
   const left = o.until - S.G.day;
@@ -164,7 +180,7 @@ function tabZone() {
   if (g.phase === 'setup') return tabSetup();
   if (S.sel == null) {
     const t = targets(), ur = unread();
-    return jailCard() + careerCard() + objCard() + (ur ? `<button class="gold btn act" data-g="phone"><span>${ur} mensage${ur > 1 ? 'ns' : 'm'} no celular</span><em>abrir</em></button>` : '') +
+    return finCard() + jailCard() + tutCard() + careerCard() + objCard() + (ur ? `<button class="gold btn act" data-g="phone"><span>${ur} mensage${ur > 1 ? 'ns' : 'm'} no celular</span><em>abrir</em></button>` : '') +
       (can('attack') ? `<h4>Alvos ao seu alcance</h4><div class="tgt">${t.length ? t.map(([i, r]) => { const [o, c] = odds(r); return `<button class="ghost" data-sel="${i}"><b>${esc(S.M.z[i].n)}</b><span style="color:${c}">${visible(i) ? o : o + '?'}</span></button>`; }).join('') : '<p class="note">Nenhum alvo por enquanto.</p>'}</div>`
         : `<h4>Sua missão</h4><p class="note">Como ${esc(rankName())}, quem decide os ataques é o chefe. Cumpra as missões do celular para ganhar respeito e subir de cargo. Toque numa zona para ver detalhes.</p>${lockBox('attack')}`);
   }
@@ -204,7 +220,7 @@ function tabZone() {
 }
 function tabCmd() {
   const g = S.G, inc = pIncome(), up = upkeep();
-  let h = jailCard() + careerCard() + objCard() + `<button class="ghost btn act" data-g="career"><span>Carreira e habilidades</span><em>abrir no celular</em></button>`;
+  let h = finCard() + jailCard() + tutCard() + careerCard() + objCard() + buffList() + `<button class="ghost btn act" data-g="career"><span>Carreira e habilidades</span><em>abrir no celular</em></button>`;
   h += `<h4>Loja · sem ação</h4>`;
   h += can('crew') ? `<div class="shop"><button class="ghost" data-a="buy" data-n="sol">${I.sol}<span><b>${esc(S.MD.recruit[0])}</b><small>${esc(S.MD.recruit[1])}</small></span><em>${fmt(recruitCost())}</em></button>` +
     (can('attack') ? `<button class="ghost" data-a="buy" data-n="pis">${I.pis}<span><b>10 pistolas</b><small>Cada ${S.MD.u1} armado bate mais forte</small></span><em>${fmt(600)}</em></button><button class="ghost" data-a="buy" data-n="rif">${I.rif}<span><b>5 fuzis</b><small>O que mais pesa no confronto</small></span><em>${fmt(1800)}</em></button></div><p class="note">Poder da tropa: <b style="color:var(--g1)">x${pq().toFixed(2)}</b>. Sem arma 0,6, pistola 1,1, fuzil 1,8.</p>` : `</div>${lockBox('attack', 'Comprar armas')}`) : lockBox('crew');
@@ -329,7 +345,7 @@ function refresh() {
   if (!S.G || $('#game').classList.contains('hide')) return;
   renderPhone(); renderHUD(); renderViews(); renderPanel(); MAP.paint();
 }
-function select(i) { S.sel = i; tab = 'z'; sfx.click(); $('#panel').classList.remove('min'); refresh(); }
+function select(i) { S.sel = i; if (S.G && S.G.phase === 'play' && S.G.d[i].o !== 0) E.tut('look'); tab = 'z'; sfx.click(); $('#panel').classList.remove('min'); refresh(); }
 function enterGame() {
   $('#menu').classList.add('hide'); $('#game').classList.remove('hide'); dq.length = 0; $('#dlg').classList.add('hide');
   phone.open = false; tab = 'z'; $('#panel').classList.remove('min');
@@ -365,7 +381,7 @@ function renderMenu() {
   $('#conts').innerHTML = saves.map(([k, s]) => `<button class="gold btn" data-cont="${k}">Continuar ${MODES[k].name}<small>dia ${s.day}</small></button>`).join('') + `<button class="ghost btn" data-g="new">Nova partida<small>escolha o modo</small></button>`;
   $('#sndBtn').textContent = 'Som: ' + (sound ? 'ligado' : 'desligado');
   const recs = store.get('ddc.records') || [];
-  $('#recs').innerHTML = recs.length ? `<h4 style="margin:6px 0 8px">Seus recordes</h4><ul class="rep" style="margin:0;text-align:left">${recs.slice(0, 5).map(r => `<li><span>${esc(MODES[r.mode]?.name || r.mode)} · ${esc(r.nick)} · ${r.win ? 'venceu' : 'caiu'} no dia ${r.day}</span><b style="color:var(--g1)">${r.score}</b></li>`).join('')}</ul>` : '';
+  $('#recs').innerHTML = recs.length ? `<h4 style="margin:6px 0 8px">Seus recordes</h4><ul class="rep" style="margin:0;text-align:left">${recs.slice(0, 5).map(r => `<li><span>${esc(MODES[r.mode]?.name || r.mode)} · ${esc(r.nick)} · ${r.win ? (r.end ? esc(r.end) : 'venceu') : 'caiu'} no dia ${r.day}</span><b style="color:var(--g1)">${r.score}</b></li>`).join('')}</ul>` : '';
   const J = mapsLoaded().rio;
   if (J) {
     const [a, b, c, d] = J.bounds, k = Math.cos((b + d) / 2 * Math.PI / 180), W = 1600, sc = W / ((c - a) * k), H = Math.round((d - b) * sc), pal = ['#e5484d', '#3b82f6', '#22a06b', '#a855f7'];
@@ -382,7 +398,7 @@ const HOW = `<h2>Como jogar</h2><ul class="rep txt">
  <li>Na visão Ataque do mapa, verde é alvo fácil e vermelho é suicídio. O que está apagado está fora de alcance.</li>
  <li>Lealdade alta faz o povo defender a zona. Lealdade baixa gera denúncia e revolta. Construções e taxa baixa ajudam.</li>
  <li>Os rivais planejam ataques um dia antes. Com olheiros ou câmeras, você é avisado e pode reforçar.</li>
- <li>Você vence ao dominar metade do mapa ou eliminar os rivais. Se um rival chegar a 65% do mapa, você perde.</li></ul><button class="gold btn" data-g="close">Entendi</button>`;
+ <li>Ao chegar em 40% do mapa (a partir do dia 12) começa a reta final: os rivais se unem contra você. Segure 35% e a sua base até o fim do cerco para vencer. Dominar 65% ou eliminar todos os rivais também vence.</li><li>Se um rival chegar a 65% do mapa, você perde.</li></ul><button class="gold btn" data-g="close">Entendi</button>`;
 
 // ---------- eventos ----------
 document.addEventListener('click', async e => {
@@ -407,13 +423,14 @@ document.addEventListener('click', async e => {
   if (D.cont) { if (await resume(D.cont)) enterGame(); return; }
   if (D.tab) { const p = $('#panel'); if (mob() && D.tab === tab && !p.classList.contains('min')) p.classList.add('min'); else { p.classList.remove('min'); tab = D.tab; } sfx.click(); return renderPanel(); }
   if (D.view) { MAP.setView(D.view); sfx.click(); return renderViews(); }
-  if (D.sel) { S.sel = +D.sel; MAP.focusOn(S.sel, true); tab = 'z'; return refresh(); }
+  if (D.sel) { S.sel = +D.sel; if (S.G.phase === 'play' && S.G.d[S.sel].o !== 0) E.tut('look'); MAP.focusOn(S.sel, true); tab = 'z'; return refresh(); }
   if (D.z) { if (D.z === 'home') { if (S.G.base != null) MAP.focusOn(S.G.base, true); else MAP.fitAll(); } else MAP.zoom(D.z === 'in' ? 1 : -1); return; }
   if (D.rank != null && D.rank !== undefined && t.closest('.choice')) { setup.rank = +D.rank; setup.nick = $('#nick')?.value || setup.nick; sfx.click(); return renderPanel(); }
   if (!D.a || t.disabled || !S.G || S.G.over) return;
   const a = D.a;
   if (a === 'start') { if (S.sel == null || !canStart(S.sel)) return; setup.nick = $('#nick')?.value || ''; batching = true; startAt(S.sel, setup.rank, setup.nick); batching = false; sfx.win(); MAP.focusOn(S.sel, true); refresh(); setTimeout(() => { if (unread()) { result('Celular', 'Você tem mensagens novas. Toque no celular dourado.', 'good'); sfx.ping(); } }, 900); return; }
   if (a === 'endDay') return doEndDay();
+  if (a === 'tutoff') { S.G.tut.off = 1; saveGame(); return refresh(); }
   if (a === 'ans') { answer(+D.m, +D.n); sfx.click(); return refresh(); }
   if (a === 'skill') { buySkill(D.n); return refresh(); }
   if (a === 'price') { const [id, t] = D.n.split('|'); A.price(id, t); saveGame(); return refresh(); }

@@ -1,5 +1,5 @@
 // Regras do jogo: estado, combate, economia, carreira, mensagens, IA e eventos.
-import { ZT, XP, UNLOCK, SKILLS, MODES, ACH, TIERS, RIVAL_STR } from './data.js';
+import { ZT, XP, UNLOCK, SKILLS, MODES, ACH, TIERS, RIVAL_STR, FINALS } from './data.js';
 
 export const S = { G: null, M: null, MD: null, sel: null, flash: null, on: {} };
 const DATA_V = '4';
@@ -18,7 +18,35 @@ export const store = {
   del(k) { try { localStorage.removeItem(k); } catch (e) {} },
 };
 export const emit = (ev, ...a) => { const f = S.on[ev]; if (f) f(...a); };
-export const modv = k => { const c = S.G && S.G.cev; return c && c.until >= S.G.day && c.m[k] != null ? c.m[k] : (k === 'noAtk' ? 0 : 1); };
+export const modv = k => {
+  const g = S.G; if (!g) return k === 'noAtk' ? 0 : 1;
+  const c = g.cev; let v = c && c.until >= g.day && c.m[k] != null ? c.m[k] : (k === 'noAtk' ? 0 : 1);
+  for (const b of g.buf || []) if (b.until >= g.day && b.m[k] != null) v = k === 'noAtk' ? Math.max(v, b.m[k]) : v * b.m[k];
+  return v;
+};
+export function addBuf(m, days, name) { const g = S.G; g.buf = (g.buf || []).filter(b => b.until >= g.day); g.buf.push({ m, until: g.day + days - 1, name }); }
+export const buffs = () => (S.G.buf || []).filter(b => b.until >= S.G.day && b.name);
+export const finOn = () => !!(S.G.fin && S.G.fin.active);
+export const FIN_AT = .4, FIN_HOLD = .35;
+// ---------- primeiros passos ----------
+export const TUT = [
+  { k: 'phone', t: 'Abra o celular e responda uma mensagem' },
+  { k: 'look', t: 'Toque numa zona rival no mapa para ver os detalhes' },
+  { k: 'buy', t: 'Compre mercadoria no app Mercado do celular', need: 'market' },
+  { k: 'dep', t: 'Mande gente da base para uma zona sua', need: 'crew' },
+  { k: 'attack', t: 'Ataque uma zona com chance boa (contorno verde)', need: 'attack' },
+  { k: 'build', t: 'Faça uma construção numa zona sua', need: 'build' },
+  { k: 'end', t: 'Encerre o dia e leia o relatório' },
+];
+export const tutList = () => TUT.filter(s => !s.need || can(s.need));
+export const tutShow = () => { const g = S.G; return g && g.phase === 'play' && g.tut && !g.tut.off && g.day <= 10; };
+export function tut(k) {
+  const g = S.G; if (!g || !g.tut || g.tut.off || g.tut.d[k]) return;
+  const L = tutList(), s = L.find(x => x.k === k); if (!s) return;
+  g.tut.d[k] = 1; addXP(20);
+  if (L.every(x => g.tut.d[x.k])) { g.tut.off = 1; g.money += 1000; emit('toast', 'Primeiros passos completos', `Você pegou o jeito. Prêmio: ${fmt(1000)}.`, 'good'); emit('sfx', 'win'); }
+  else emit('toast', 'Passo concluído', s.t + '. +20 de respeito.', 'good');
+}
 export const rel = id => (S.G.rel && S.G.rel[id] != null) ? S.G.rel[id] : 50;
 export function addRel(id, d) { const g = S.G; g.rel = g.rel || {}; g.rel[id] = clamp(rel(id) + d, 0, 100); }
 export const hasType = (...t) => owned(0).some(i => t.includes(S.M.type[i]));
@@ -68,7 +96,7 @@ const beff = (i, k) => sum(bOf(i).map(b => b.eff[k] || 0)) + (S.G.d[i].o === 0 &
 export function defVal(i) {
   const d = S.G.d[i];
   let v = Math.max(.5, d.t) * qOf(d.o) * S.M.dm(i) * (1 + beff(i, 'def'));
-  if (d.o === 0) v *= (.75 + .5 * d.l / 100) * (sk('def') ? 1.2 : 1) * (i === S.G.base ? 1.5 * (rel('braco') >= 80 ? 1.2 : 1) : 1);
+  if (d.o === 0) v *= (.75 + .5 * d.l / 100) * (sk('def') ? 1.2 : 1) * (finOn() && S.G.fin.opt === 'def' ? 1.25 : 1) * (i === S.G.base ? 1.5 * (rel('braco') >= 80 ? 1.2 : 1) : 1);
   return v;
 }
 export function incOf(i, asOwner = 0) {
@@ -87,8 +115,8 @@ export const reach = i => { const d = S.G.d[i]; return d.o !== 0 && !truceWith(d
 export const recruitCost = () => Math.round((sk('rec') ? 450 : 600) * modv('rec') * (owned(0).filter(i => S.M.type[i] === 'comunidade').length >= 2 ? .85 : 1));
 export const bribeCost = () => Math.round((400 + 20 * S.G.heat) * (hasType('centro', 'capitale') ? .7 : 1) * (1.2 - rel('politico') / 100 * .4));
 export const heatMul = () => (sk('heat') ? .7 : 1) * modv('heat');
-export const pAtkMul = () => (sk('atk') ? 1.15 : 1) * (S.G.perk && S.G.perk.vet ? 1.1 : 1);
-export const goal = .5;
+export const pAtkMul = () => (sk('atk') ? 1.15 : 1) * (S.G.perk && S.G.perk.vet ? 1.1 : 1) * (finOn() && S.G.fin.opt === 'atk' ? 1.2 : 1);
+export const goal = .65;
 export function intelAt(i) { return owned(0).some(j => (j === i || S.M.adj[j].includes(i)) && beff(j, 'intel') > 0); }
 export const visible = i => S.G.d[i].o === 0 || sk('intel') || (S.G.seen[i] || 0) >= S.G.day || intelAt(i);
 export function est(i) {
@@ -174,7 +202,7 @@ export function startAt(i, rank, nick) {
   g.d[i] = { o: 0, t: 16, b: [], l: 70, tx: 1 };
   M_.adj[i].filter(j => g.d[j].o === -1 && M_.type[j] !== 'capitale').slice(0, 1).forEach(j => { g.d[j] = { o: 0, t: 9, b: [], l: 50, tx: 1 }; });
   for (const gd of S.MD.goods) { const q = Math.round(demandFor(gd.id, 2, false) * 2) || 20; g.stock[gd.id] = q; g.cost[gd.id] = gd.buy || 0; }
-  g.cash0 = g.money;
+  g.cash0 = g.money; g.tut = { d: {}, off: 0 };
   g.acts = maxActs();
   log(`${g.nick} entrou para ${g.pname} como ${rankName()} em ${M_.z[i].n}.`, 'good');
   welcome();
@@ -268,7 +296,7 @@ export function dailyMessages() {
 }
 export function answer(id, oi) {
   const g = S.G, m = g.msgs.find(x => x.id === id); if (!m || m.st !== 'open') return;
-  const o = m.opts[oi]; m.st = 'done'; m.chosen = oi; me(m.c, o.l);
+  const o = m.opts[oi]; m.st = 'done'; m.chosen = oi; me(m.c, o.l); tut('phone');
   g.msgs.forEach(x => { if (x.c === m.c) x.read = 1; });
   const RD = { vigiar: ['chefe', 3], entrega: ['chefe', 3], cobranca: ['chefe', 2], ordem: ['chefe', 4], recruta: [m.c, 2], lote: ['fornecedor', 4], oferta: ['comprador', 4], politico: ['politico', 6], aviso: ['olheiro', 3] };
   if (RD[o.k]) addRel(RD[o.k][0], RD[o.k][1]);
@@ -282,6 +310,15 @@ const zname = i => S.M.z[i].n;
 const MA = {
   nada: () => pick(['Beleza.', 'Tranquilo.', 'Fica pra próxima.', 'Ok.']),
   lawyer() { const g = S.G; if (!jailed()) return 'Você já está solto.'; if (g.money < 5000) return 'Sem os 5 mil não consigo.'; A.lawyer(); return `Feito. Você sai no fim do dia ${g.jail.until}.`; },
+  fin({ k, c }) {
+    const g = S.G; if (!finOn()) return 'Isso já passou.';
+    if (!k) return 'Então segura firme. Vai ser no braço.';
+    if (g.money < c) return `Sem ${fmt(c)} no caixa não dá. Vai ter que ser no braço.`;
+    g.money -= c; g.fin.opt = k;
+    if (k === 'pol') { addBuf({ raid: .3 }, 7, 'Proteção na reta final'); g.heat = Math.max(0, g.heat - 25); return 'Feito. Ninguém de cima vai mexer com a gente essa semana.'; }
+    if (k === 'atk') { if (can('crew')) g.reserve += 12; else g.d[g.base].t += 12; return 'Chegaram 12 de fora e a tropa toda bate mais forte até o fim do cerco.'; }
+    return 'Todas as zonas reforçadas. A defesa aguenta 25% a mais até o fim do cerco.';
+  },
   story_truce({ k }) { const g = S.G, F = g.f[k]; F.truce = g.day + 7; F.truceFrom = g.day; g.plans = g.plans.filter(p => !(p.o === k + 1 && g.d[p.b].o === 0)); return 'Fechado. 7 dias de paz.'; },
   vigiar({ z }) {
     const g = S.G;
@@ -402,10 +439,10 @@ export const A = {
     if (jailed()) { emit('toast', 'Você está preso', 'Daqui de dentro não dá para construir.', 'bad'); return; }
     const g = S.G, i = S.sel, d = g.d[i], b = S.MD.builds.find(x => x.id === id);
     if (!can('build') || !b || d.o !== 0 || d.b.length >= 3 || d.b.includes(id) || !spend(b.cost, true)) return;
-    d.b.push(id); g.stats.built++; addXP(10); emit('sfx', 'cash'); emit('toast', 'Construído', `${b.name} em ${zname(i)}.`, 'good'); log(`${b.name} construído em ${zname(i)}.`, 'good');
+    d.b.push(id); g.stats.built++; addXP(10); tut('build'); emit('sfx', 'cash'); emit('toast', 'Construído', `${b.name} em ${zname(i)}.`, 'good'); log(`${b.name} construído em ${zname(i)}.`, 'good');
   },
   tax(v) { const d = S.G.d[S.sel]; if (!can('build') || d.o !== 0) return; d.tx = +v; emit('sfx', 'click'); },
-  dep(n) { const g = S.G, d = g.d[S.sel]; if (!can('crew') || d.o !== 0 || jailed()) return; n = n === 'all' ? g.reserve : Math.min(+n, g.reserve); if (n > 0) { g.reserve -= n; d.t += n; emit('sfx', 'click'); } },
+  dep(n) { const g = S.G, d = g.d[S.sel]; if (!can('crew') || d.o !== 0 || jailed()) return; n = n === 'all' ? g.reserve : Math.min(+n, g.reserve); if (n > 0) { g.reserve -= n; d.t += n; tut('dep'); emit('sfx', 'click'); } },
   wd(n) { const g = S.G, d = g.d[S.sel]; if (!can('crew') || d.o !== 0 || jailed()) return; n = n === 'all' ? d.t : Math.min(+n, d.t); if (n > 0) { d.t -= n; g.reserve += n; emit('sfx', 'click'); } },
   scout() { const g = S.G, i = S.sel; if (!can('crew') || g.d[i].o === 0 || jailed() || !spend(200, true)) return; g.seen[i] = g.day + 4; addXP(5); emit('toast', 'Olheiro no local', `${zname(i)}: ${g.d[i].t} ${S.MD.unit} defendendo.`, 'good'); },
   attack(n) {
@@ -415,7 +452,7 @@ export const A = {
     if (modv('noAtk')) { emit('toast', 'Ninguém se mexe', `${g.cev.name}: ataques suspensos até o dia ${g.cev.until}.`, 'bad'); return; }
     if (g.acts < ATK_COST) { emit('toast', 'Sem ações', `Atacar gasta ${ATK_COST} ações. Encerre o dia.`, 'bad'); return; }
     const prev = d.o, pn = oname(prev), from = S.M.adj[i].filter(j => g.d[j].o === 0).sort((a, b) => g.d[b].t - g.d[a].t)[0];
-    g.reserve -= n; g.acts -= ATK_COST;
+    g.reserve -= n; g.acts -= ATK_COST; tut('attack');
     const r = fight(0, n, i);
     g.heat = Math.min(100, g.heat + (S.MD.budget ? Math.round((r.aLoss + r.dLoss) / 2) + 3 : (S.MD.heatAtk + (S.M.val[i] >= 500 ? 4 : 0)) * heatMul()));
     g.seen[i] = g.day + 2;
@@ -432,7 +469,7 @@ export const A = {
       if (!gd.buy) return; const p = buyPrice(id); q = Math.min(+q, storage() - stockTotal());
       if (q <= 0) { emit('toast', 'Depósito cheio', 'Espere as vendas ou construa depósito.', 'bad'); return; }
       if (g.money < p * q) { emit('toast', 'Falta caixa', `Precisa de ${fmt(p * q)}.`, 'bad'); return; }
-      buyGood(id, q, p); emit('sfx', 'cash'); emit('toast', 'Compra feita', `${q} ${gd.unit} de ${gd.name.toLowerCase()} a ${fmt(p)} cada.`, 'good');
+      buyGood(id, q, p); tut('buy'); emit('sfx', 'cash'); emit('toast', 'Compra feita', `${q} ${gd.unit} de ${gd.name.toLowerCase()} a ${fmt(p)} cada.`, 'good');
     }
     checkRank(); checkAch();
   },
@@ -452,8 +489,10 @@ function planFor(o, rep) {
   const g = S.G, mine = owned(o), q = qOf(o), used = new Set();
   if (modv('noAtk')) return;
   const pers = o > 0 ? g.f[o - 1].pers : null;
-  const tries = Math.min(pers === 'agressivo' ? 3 : 2, 1 + Math.floor(g.day / 7) + (pers === 'agressivo' ? 1 : 0));
-  const ratio = pers === 'agressivo' ? 1.15 : pers === 'cauteloso' ? 1.6 : 1.3;
+  const fin = finOn() && o > 0;
+  const big = o > 0 && owned(o).length / S.M.N >= .35;
+  const tries = big ? 1 : Math.min(pers === 'agressivo' ? 3 : 2, 1 + Math.floor(g.day / 7) + (pers === 'agressivo' ? 1 : 0)) + (fin ? 1 : 0);
+  const ratio = (pers === 'agressivo' ? 1.15 : pers === 'cauteloso' ? 1.6 : 1.3) - (fin ? .05 : 0);
   if (o === 0 && g.join != null) {
     const b = g.join, a = S.M.adj[b].filter(j => g.d[j].o === 0).sort((x, y) => g.d[y].t - g.d[x].t)[0];
     if (a != null && g.d[b].o !== 0) { g.plans.push({ o, a, b, bonus: 1.15, join: 1 }); used.add(a); }
@@ -466,10 +505,10 @@ function planFor(o, rep) {
     for (const a of mine) {
       if (used.has(a)) continue; const ta = g.d[a].t; if (ta < 3) continue;
       for (const b of S.M.adj[a]) {
-        const db = g.d[b]; if (db.o === o) continue;
+        const db = g.d[b]; if (db.o === o) continue; if (fin && db.o > 0) continue;
         if ((o > 0 && db.o === 0 && truceWith(o)) || (o === 0 && truceWith(db.o))) continue;
         const def = defVal(b), att = (ta - 1) * q; if (att < def * (o > 0 && db.o === 0 ? ratio + .15 : ratio)) continue;
-        const s = S.M.val[b] / (def + 1) * (db.o === -1 ? 1.15 : 1) * (db.o === lead ? 1.4 : 1) * (o > 0 && db.o === 0 ? ((g.hate || 0) >= g.day ? 1.6 : .9) : 1) * (g.war && g.war.until >= g.day && o - 1 === g.war.a && db.o - 1 === g.war.b || g.war && g.war.until >= g.day && o - 1 === g.war.b && db.o - 1 === g.war.a ? 1.8 : 1);
+        const s = S.M.val[b] / (def + 1) * (fin && db.o === 0 ? 1.6 : 1) * (db.o === -1 ? 1.15 : 1) * (db.o === lead ? 1.4 : 1) * (o > 0 && db.o === 0 ? ((g.hate || 0) >= g.day ? 1.6 : .9) : 1) * (g.war && g.war.until >= g.day && o - 1 === g.war.a && db.o - 1 === g.war.b || g.war && g.war.until >= g.day && o - 1 === g.war.b && db.o - 1 === g.war.a ? 1.8 : 1);
         if (s > bs) { bs = s; best = [a, b]; }
       }
     }
@@ -480,7 +519,7 @@ function aiEconomy(o) {
   const g = S.G, mine = owned(o); if (!mine.length) { if (o > 0) g.f[o - 1].alive = false; return; }
   if (o > 0) {
     const F = g.f[o - 1], T = sum(mine.map(i => g.d[i].t));
-    F.money += sum(mine.map(i => S.M.val[i])) * .6 / (1 + mine.length / 14) + 200 - 7 * T;
+    F.money += sum(mine.map(i => S.M.val[i])) * .6 / (1 + mine.length / 14) * (mine.length / S.M.N >= .35 ? .7 : 1) + 200 - 7 * T + (finOn() ? 350 : 0) + Math.max(0, owned(0).length / S.M.N - .32) * 1500;
     if (F.money > 3000 && F.q < 1.6 && Math.random() < .35) { F.money -= 2500; F.q = Math.min(1.6, F.q + .1); }
     const buy = Math.floor(Math.max(0, F.money - 500) / 60 * (F.pers === 'cauteloso' ? .4 : .3));
     if (buy > 0) { F.money -= buy * 60; distribute(o, buy); }
@@ -622,7 +661,7 @@ export function endDay() {
   g.money += inc - up;
   const luc = sv.ven + (g.extra || 0) - sv.cmv - (g.xcost || 0) + inc - up;
   const H = { d: g.day, ven: sv.ven + (g.extra || 0), cmv: sv.cmv + (g.xcost || 0), arr: inc, sal: up, luc, lost: Math.round(sv.lost), buys: g.buys || 0 };
-  g.extra = 0; g.xcost = 0; g.buys = 0;
+  g.extra = 0; g.xcost = 0; g.buys = 0; tut('end');
   rep.push(['good', `Vendas ${S.MD.shopIn}`, '+' + fmt(H.ven)], ['bad', 'Custo da mercadoria vendida', '-' + fmt(H.cmv)], ['good', S.MD.budget ? 'Orçamento e arrecadação' : 'Arrecadação das zonas', '+' + fmt(inc)], ['bad', 'Salários', '-' + fmt(up)]);
   if (H.lost > 200) rep.push(['bad', 'Vendas perdidas por falta de mercadoria', fmt(H.lost)]);
   if (g.money < 0) { let lost = Math.ceil(g.reserve * .15); g.reserve -= lost; for (const i of owned(0)) { const l = Math.ceil(g.d[i].t * .15); g.d[i].t -= l; lost += l; } loseWeapons(lost); log(`Caixa no vermelho: ${lost} ${S.MD.unit} abandonaram você.`, 'bad'); rep.push(['bad', 'Caixa no vermelho: deserção', `-${lost}`]); }
@@ -653,15 +692,30 @@ export function checkEnd() {
   const g = S.G, mine = owned(0).length, share = mine / S.M.N;
   const top = g.f.map((f, k) => [k, owned(k + 1).length]).sort((a, b) => b[1] - a[1])[0];
   if (g.over) return;
+  const F = FINALS[g.mode];
   if (!mine) { g.over = 'lose'; g.why = `${g.pname} perdeu a última zona no dia ${g.day}.`; }
-  else if (share >= goal || g.f.every(f => !f.alive)) { g.over = 'win'; g.why = `${g.pname} dominou ${Math.round(share * 100)}% de ${S.MD.city} em ${g.day} dias.`; }
+  else if (share >= goal || g.f.every(f => !f.alive)) { g.over = 'win'; g.ending = F.title; g.why = `${g.pname} dominou ${Math.round(share * 100)}% de ${S.MD.city} em ${g.day} dias.`; }
+  else if (finOn() && g.day > g.fin.until) {
+    if (share >= FIN_HOLD && g.d[g.base].o === 0) { g.over = 'win'; g.ending = F.title; g.why = `${g.pname} resistiu até o fim (${F.name}) com ${Math.round(share * 100)}% de ${S.MD.city}, no dia ${g.day}.`; }
+    else { g.fin = { active: 0, cool: g.day + 10, failed: (g.fin.failed || 0) + 1 }; g.f.forEach((f, k) => { if (f.alive) owned(k + 1).forEach(i => { g.d[i].t = Math.max(1, Math.round(g.d[i].t * .8)); }); }); log(`${F.name}: a aliança rival quebrou o seu cerco. A história segue.`, 'bad'); msg(finFrom(), 'Não deu dessa vez. A aliança deles se desfez, mas a gente perdeu terreno. Reorganiza e tenta de novo.'); }
+  }
   else if (top[1] / S.M.N >= .65) { g.over = 'lose'; g.why = `${g.f[top[0]].name} dominou ${Math.round(top[1] / S.M.N * 100)}% do mapa no dia ${g.day}.`; }
+  else if (!finOn() && share >= FIN_AT && g.day >= 12 && (!(g.fin && g.fin.cool > g.day) || share >= .5) && g.f.filter(f => f.alive).length) startFinal();
   if (g.over) {
     store.del(SAVE + g.mode);
     g.score = Math.max(0, Math.round(owned(0).length * 120 + g.money / 50 + Object.keys(g.ach).length * 80 + g.rank * 150 + (g.over === 'win' ? 2000 - g.day * 15 : 0)));
     const recs = store.get('ddc.records') || [];
-    recs.push({ mode: g.mode, nick: g.nick, score: g.score, win: g.over === 'win', day: g.day, rank: rankName(), at: Date.now() });
+    recs.push({ mode: g.mode, nick: g.nick, score: g.score, win: g.over === 'win', day: g.day, rank: rankName(), at: Date.now(), end: g.over === 'win' ? g.ending : null });
     recs.sort((a, b) => b.score - a.score); store.set('ddc.records', recs.slice(0, 20));
     emit('over', g.over);
   }
+}
+const finFrom = () => { const f = FINALS[S.G.mode].from; return contacts().some(c => c.id === f) ? f : S.G.rank >= 5 ? 'braco' : 'chefe'; };
+function startFinal() {
+  const g = S.G, F = FINALS[g.mode], from = finFrom();
+  g.fin = { active: 1, from: g.day, until: g.day + 6, opt: null, failed: (g.fin && g.fin.failed) || 0 };
+  g.f.forEach((f, k) => { if (!f.alive) return; f.truce = 0; f.money += 1500; f.q = Math.min(1.6, f.q + .05); const z = owned(k + 1); if (z.length) distribute(k + 1, 3 + Math.floor(g.day / 5) + Math.ceil(z.length / 2)); });
+  log(`${F.name}: os rivais se uniram contra ${g.pname}. Segure ${Math.round(FIN_HOLD * 100)}% do mapa e a sua base até o dia ${g.fin.until}.`, 'bad');
+  msg(from, F.start, [...F.opts.map(([k, l, c]) => ({ l: `${l} (${fmt(c)})`, k: 'fin', p: { k, c } })), { l: 'Seguir como está', k: 'fin', p: { k: null, c: 0 } }]);
+  emit('final', g.fin);
 }

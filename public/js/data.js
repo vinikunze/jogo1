@@ -182,3 +182,32 @@ export const ACH = [
   { id: 'trader', name: 'Comerciante', desc: 'Venda 300 unidades no mercado.' },
   { id: 'defender', name: 'Muralha', desc: 'Segure 5 ataques.' },
 ];
+
+// Reta final de cada modo: ao chegar em 40% do mapa os rivais se unem contra você.
+// Segure 35% e a sua base até o fim do cerco (ou chegue a 65%) para fechar a história.
+export const FINALS = {
+  faccao: {
+    name: 'A guerra pelo Rio', from: 'braco',
+    start: 'Chefe, deu ruim. Os outros comandos fecharam aliança contra a gente e o governo prometeu ocupar as nossas comunidades. Se a gente segurar essa semana, o Rio é nosso.',
+    opts: [['def', 'Fechar todas as entradas', 4000], ['pol', 'Acertar com quem manda na cidade', 5000], ['atk', 'Chamar os aliados de outros morros', 3000]],
+    title: 'Dono do Rio', epi: 'Os outros comandos recuaram e ninguém mais sobe o morro sem a sua palavra. Do baile às bancas, o Rio inteiro sabe o nome de quem manda.',
+  },
+  milicia: {
+    name: 'A CPI da milícia', from: 'advogado',
+    start: 'Abriram uma CPI com o nosso nome e os grupos rivais se juntaram para tomar a Zona Oeste enquanto a gente se defende. É agora ou nunca.',
+    opts: [['def', 'Dobrar a patrulha nas divisas', 4000], ['pol', 'Comprar votos na CPI', 5000], ['atk', 'Chamar os ex-policiais de fora', 3000]],
+    title: 'Patrão da Zona Oeste', epi: 'A CPI terminou em pizza e os rivais foram engolidos um a um. Gás, sinal, transporte e voto: tudo passa por você.',
+  },
+  policia: {
+    name: 'A operação final', from: 'chefe',
+    start: 'As facções fizeram um pacto contra a nossa ocupação. O governador quer resultado em uma semana. Segura as áreas e a pacificação vira modelo para o país.',
+    opts: [['def', 'Instalar bases fixas em todas as áreas', 4000], ['pol', 'Pedir apoio da Força Nacional', 5000], ['atk', 'Montar uma força tarefa de elite', 3000]],
+    title: 'Comandante-Geral', epi: 'O pacto das facções ruiu e as áreas seguem ocupadas. Você virou Comandante-Geral e o seu modelo de policiamento vai ser copiado pelo Brasil.',
+  },
+  mafia: {
+    name: 'Il Maxiprocesso', from: 'advogado',
+    start: 'O Estado abriu o maior processo da história contra as famílias e as outras famílias se uniram contra nós. Se a gente atravessar essa semana, a Sicília é nossa.',
+    opts: [['def', 'Fechar a família, ninguém fala', 4000], ['pol', 'Comprar um juiz em Roma', 5000], ['atk', 'Trazer os primos de Nova York', 3000]],
+    title: 'Capo dei capi', epi: 'O processo acabou sem ninguém da família condenado e as outras famílias beijaram o seu anel. De Palermo ao porto, nada acontece sem a sua bênção.',
+  },
+};
