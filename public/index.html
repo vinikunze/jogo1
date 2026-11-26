@@ -500,8 +500,8 @@ function addLayers(){
   map.addLayer({id:'tsel',type:'line',source:'terr',filter:['==',['id'],-1],paint:{'line-color':'#ffffff','line-width':3}});
   map.addLayer({id:'links',type:'line',source:'links',paint:{'line-color':'rgba(247,220,142,.6)','line-width':1.6,'line-dasharray':[2,2]}});
   map.addLayer({id:'fx',type:'line',source:'fx',layout:{'line-cap':'round'},paint:{'line-color':'#f8e09a','line-width':4.5,'line-opacity':.95}});
-  map.addLayer({id:'names',type:'symbol',source:'ptn',layout:{'text-field':['get','n'],'text-font':['Noto Sans Regular'],'text-size':['interpolate',['linear'],['zoom'],9,10,13,12.5,16,15],'text-anchor':'top','text-offset':[0,1.55],'text-max-width':8,'symbol-sort-key':['get','ka']},paint:{'text-color':'rgba(241,236,226,.88)','text-halo-color':'rgba(5,7,10,.95)','text-halo-width':1.6}});
-  map.addLayer({id:'badges',type:'symbol',source:'pts',filter:['!=',['get','ic'],''],layout:{'icon-image':['get','ic'],'symbol-sort-key':['get','k'],'icon-padding':1}});
+  map.addLayer({id:'names',type:'symbol',source:'ptn',layout:{'text-field':['get','n'],'text-font':['Noto Sans Regular'],'text-size':['interpolate',['linear'],['zoom'],9,10,13,12.5,16,15],'text-anchor':'top','text-offset':[0,1.7],'text-max-width':8,'symbol-sort-key':['get','ka']},paint:{'text-color':'rgba(241,236,226,.88)','text-halo-color':'rgba(5,7,10,.95)','text-halo-width':1.6}});
+  map.addLayer({id:'badges',type:'symbol',source:'pts',filter:['!=',['get','ic'],''],layout:{'icon-image':['get','ic'],'symbol-sort-key':['get','k'],'icon-padding':0,'icon-ignore-placement':true}});
 }
 function makeBadge(id){
   if(!id.startsWith('bd|')||map.hasImage(id))return;
