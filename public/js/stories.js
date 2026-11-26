@@ -533,6 +533,14 @@ function relationTick(rep) {
     if (F.pers === 'traiçoeiro' && F.truce >= g.day && F.truceFrom && g.day - F.truceFrom >= 3 && Math.random() < .25) { F.truce = 0; msg('rival' + k, 'Trégua? Que trégua?'); log(`${F.name} quebrou a trégua.`, 'bad'); }
     if (F.pers === 'negociador' && can('boss') && !(F.truce >= g.day) && Math.random() < .08) { msg('rival' + k, 'Guerra não dá lucro pra ninguém. Topa 7 dias de paz, sem custo?', [{ l: 'Aceito', k: 'story_truce', p: { k } }, { l: 'Não', k: 'nada' }]); }
   });
+  // rival quase sem território oferece rendição
+  if (owned(0).length / S.M.N >= .5) g.f.forEach((F, k) => {
+    const z = owned(k + 1); if (!F.alive || !z.length || z.length > 2 || Math.random() > .18 || (F.surr || 0) > g.day) return;
+    F.surr = g.day + 4; const cost = Math.round((1200 * z.length + g.day * 40) / 100) * 100;
+    const who = S.G.rank >= 5 ? 'rival' + k : boss(), pre = S.G.rank >= 5 ? '' : `Recado de ${F.name}: `;
+    msg(who, pre + T({ policia: `Aqui é o ${F.name}. A gente sabe que acabou. Entregamos ${z.map(zn).join(' e ')} sem resistência se vocês garantirem a saída da nossa gente. Custa ${fmt(cost)} em transporte e acordo.`, mafia: `Basta. ${F.name} lascia la città. Entregamos ${z.map(zn).join(' e ')} por ${fmt(cost)} e ninguém mais derrama sangue.`, default: `Aqui é ${F.name}. Não tem mais como segurar. Entregamos ${z.map(zn).join(' e ')} e saímos da cidade por ${fmt(cost)}.` }),
+      [{ l: `Aceitar (${fmt(cost)})`, k: 'surrender', p: { k, cost } }, { l: 'Vou tomar na força', k: 'nada' }]);
+  });
   // guerra entre rivais
   if (g.war && g.war.until >= g.day) { for (const k of [g.war.a, g.war.b]) { if (!g.f[k].alive) continue; const loss = k === g.war.w ? 1 : RI(2, 4); owned(k + 1).slice(0, 3).forEach(i => { g.d[i].t = Math.max(1, g.d[i].t - loss); }); } }
   // arrego semanal
@@ -542,9 +550,67 @@ function relationTick(rep) {
   }
 }
 
+// ---------------- grupo da firma (conversa da equipe) ----------------
+const GT = {
+  faccao: {
+    win: ['Tomamo {z}! Agora é nosso.', 'O bonde passou em {z}, não sobrou ninguém deles lá.', '{z} é da {p} agora. Respeita.', 'Contenção montada em {z}. Tá tudo nosso.'],
+    lost: ['Perdemo {z}... os cara entraram pesado.', 'Tem que retomar {z} urgente.', 'Vacilaram na contenção de {z}.', 'Geral recuou de {z}. Tô bolado.'],
+    raid: ['O caveirão subiu aqui, sujou tudo.', 'Operação em {z}, geral entocado.', 'Os homens levaram a carga de {z}.', 'Helicóptero rodando em cima de {z} desde cedo.'],
+    good: ['Movimento forte hoje nas bancas.', 'Dia bom, caixa cheio.', 'Hoje rendeu, chefe.', 'As bancas venderam tudo antes da meia-noite.'],
+    bad: ['Dia fraco, movimento parado.', 'Tá faltando mercadoria nas bancas.', 'Ninguém subiu pra comprar hoje.'],
+    idle: ['Bom dia rapaziada, contenção no lugar.', 'Plantão da noite foi tranquilo.', 'Alguém viu o {n}? Sumiu desde ontem.', 'Hoje tem baile?', 'Fica esperto que tem viatura rodando lá embaixo.', 'Chegou mais munição, tá no lugar de sempre.', 'Dona Cida mandou bolo pra rapaziada da contenção.', 'Moto do {n} quebrou de novo kkkk'],
+    jail: ['Pegaram o patrão. Ninguém fala nada.', 'Segura a onda que ele volta.'],
+  },
+  milicia: {
+    win: ['Área de {z} sob controle. O comércio já foi avisado da taxa.', 'Patrulha assumiu {z}. Sem alteração.', '{z} agora é nossa. Gás e sinal só com a gente.'],
+    lost: ['Perdemos {z}. Precisamos reforçar a divisa.', 'Recuamos de {z}. Isso não fica assim.'],
+    raid: ['Ministério Público bateu em {z}. Ninguém abre a boca.', 'Operação em {z}, recolheram botijão e equipamento.', 'Tem viatura federal parada na entrada de {z}.'],
+    good: ['Arrecadação do dia fechou bonito.', 'Gás e sinal pagos em dia por todo mundo.', 'Van rodou lotada o dia inteiro.'],
+    bad: ['Teve comerciante enrolando pra pagar.', 'Dia fraco na arrecadação.', 'Caiu o sinal da central, morador reclamando.'],
+    idle: ['Bom dia, senhores. Ronda das 6h feita, sem alteração.', 'Van das 7h saiu lotada.', 'Morador reclamando do preço do gás de novo.', 'Câmera da entrada 2 tá com defeito.', 'Reunião hoje às 20h na associação.', 'O {n} tá de folga, quem cobre a portaria?'],
+    jail: ['Levaram o comandante. Advogado já tá no caso.', 'Ninguém comenta nada por telefone.'],
+  },
+  policia: {
+    win: ['Área {z} ocupada. Sem baixas civis.', 'Equipe estabeleceu base em {z}. QAP.', '{z} pacificada. Bom trabalho, equipe.', 'Apreensão grande em {z}, material a caminho do pátio.'],
+    lost: ['Perdemos o controle de {z}. Solicito reforço.', 'Equipe recuou de {z}. Todos bem.'],
+    raid: ['Emboscada em {z}. Equipe recuou, sem feridos graves.', 'Atacaram a viatura em {z}. Todo mundo bem.', 'Corregedoria na unidade hoje. Papelada em dia, pessoal.'],
+    good: ['Leilão rendeu bem hoje.', 'Verba caiu, viaturas abastecidas.', 'Comunidade elogiou a ronda escolar.'],
+    bad: ['Viatura 3 baixada de novo.', 'Sem verba para hora extra essa semana.', 'Imprensa na porta do batalhão desde cedo.'],
+    idle: ['Bom dia, equipe. Briefing às 6h.', 'QSL, rendição do turno feita.', 'Café do batalhão acabou de novo.', 'Alguém troca a escala de sábado comigo?', 'Rádio da viatura 2 chiando, mandem pra manutenção.', '{n}, tua viatura tá sem combustível.'],
+    jail: ['Comandante afastado. Seguimos a doutrina.', 'Aguardando a corregedoria. Ninguém fala com a imprensa.'],
+  },
+  mafia: {
+    win: ['{z} adesso è nostra.', 'Os negócios de {z} já pagam para a família.', 'Don, {z} è sistemata.'],
+    lost: ['Perdemos {z}. Vergogna.', '{z} caiu. Alguém falou demais.'],
+    raid: ['Carabinieri em {z}. Silêncio, ninguém sabe de nada.', 'A Finanza levou os livros de {z}.'],
+    good: ['Bella giornata, o cassino lotou.', 'O porto rendeu bem hoje.', 'Todas as lojas pagaram sem reclamar.'],
+    bad: ['Giornata storta. Pouco movimento.', 'O navio atrasou de novo.'],
+    idle: ['Buongiorno a tutti.', 'O padre agradeceu a doação de domingo.', 'Quem busca o Don no aeroporto?', 'O café do bar do {n} é o melhor de Palermo.', 'Tranquilo no porto esta noite.', 'Domingo tem almoço na casa da Nonna. Ninguém falta.'],
+    jail: ['Levaram o Don. Omertà, ragazzi.', 'O advogado já está cuidando de tudo.'],
+  },
+};
+function gsay(kind, z) {
+  const g = S.G; if (g.rank < 1) return;
+  const L = (GT[mode()] || GT.faccao)[kind]; if (!L) return;
+  g.gl = g.gl || []; const fresh = L.filter(x => !g.gl.includes(x)), line = pick(fresh.length ? fresh : L); g.gl = [line, ...g.gl].slice(0, 8);
+  const who = pickNames(2), t = line.replace('{z}', z != null ? zn(z) : '').replace('{p}', g.pname).replace('{n}', who[1]);
+  msg('grupo', t, [], { who: who[0], quiet: 1 });
+}
+function groupTick(rep) {
+  const g = S.G; if (g.rank < 1) return;
+  const won = rep.filter(r => r[0] === 'good' && /tomou|tomamos|A firma tomou/.test(r[1])), lost = rep.filter(r => r[0] === 'bad' && / tomou /.test(r[1])), raid = rep.find(r => r[0] === 'bad' && r[1].startsWith(S.MD.raid));
+  const zOf = r => { const i = S.M.z.findIndex(z => r[1].includes(z.n)); return i >= 0 ? i : null; };
+  if (lost.length) gsay('lost', zOf(lost[0]));
+  else if (won.length) gsay('win', zOf(won[0]));
+  if (raid) gsay('raid', zOf(raid));
+  const h = g.lastPL; if (h && Math.random() < .5) gsay(h.luc > (g.hist.length > 4 ? sum(g.hist.slice(-5).map(x => x.luc)) / 5 * 1.15 : 1e9) ? 'good' : h.luc < 0 ? 'bad' : 'idle');
+}
+export const groupWin = z => { if (S.G.rank >= 1 && Math.random() < .7) gsay('win', z); };
+
 // ---------------- ganchos ----------------
 export function dayStart() {
   const g = S.G;
+  if (g.rank >= 1 && Math.random() < .6) gsay(g.jail && g.jail.until >= g.day ? 'jail' : 'idle');
   cityEvent();
   objTick(false);
   if (g.story && !g.story.mid && g.story.due <= g.day) sendStep();
@@ -564,6 +630,7 @@ export function dayEnd(rep) {
   }
   relationTick(rep);
   objTick(true, rep);
+  groupTick(rep);
 }
 // usado nos testes automáticos
 export function forceStory(id) { const s = STORIES.find(x => x.id === id), d = {}; if (!s || !s.init(d)) return false; S.G.story = { id, step: 'a', due: S.G.day, data: d, mid: null }; sendStep(); return true; }

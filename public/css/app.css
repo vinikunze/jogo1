@@ -272,3 +272,17 @@ h4{font-family:var(--cond);text-transform:uppercase;letter-spacing:.05em;font-si
 button.link{background:none;border:0;color:var(--mu);font:inherit;font-size:12px;text-decoration:underline;cursor:pointer;padding:0}
 .buffs{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 8px}
 .buffs .chip{color:var(--g1);border-color:rgba(247,220,142,.3)}
+/* rodada 4: construções com nível e serviços */
+.bcard{border:1px solid var(--ln);background:rgba(255,255,255,.03);border-radius:12px;padding:10px 12px;margin-bottom:8px}
+.bcard .bh{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.bcard .bh b{font-size:15px}
+.bcard>small{display:block;color:var(--mu);font-size:13px;margin-top:3px;line-height:1.35}
+.chip.lv{color:var(--g1);border-color:rgba(247,220,142,.35);font-size:12px;padding:2px 8px}
+.seg.mini{margin:8px 0 2px}
+.seg.mini button{padding:6px 4px;font-size:13px}
+.seg.mini button small{display:block;font-size:11px;opacity:.75}
+.btn.sm{margin-top:8px;padding:8px 12px;min-height:0}
+.btn.sm span{font-size:13px}
+.seg.cats{flex-wrap:wrap;margin-bottom:8px}
+.seg.cats button{flex:1 1 auto;font-size:12.5px;padding:7px 8px}
+.bub b.who{display:block;font-size:12.5px;font-weight:700;margin-bottom:2px}

@@ -1,5 +1,5 @@
 // Interface: menu, HUD, painel, celular (WhatsApp), diálogos e som.
-import { MODES, SOON, XP, UNLOCK, SKILLS, ACH, ZT, TIERS, FINALS } from './data.js';
+import { MODES, SOON, XP, UNLOCK, SKILLS, ACH, ZT, TIERS, FINALS, BCAT, SRV_P, BLV } from './data.js';
 import {
   S, A, SAVE, store, fmt, sum, clamp, R, loadMap, mapsLoaded, newGame, resume, startAt, owned, colorOf, oname, sk, rankName, can, unlockRank,
   skillPoints, pTroops, pq, defVal, incOf, pIncome, upkeep, maxActs, reach, recruitCost, bribeCost, visible, est, estDef, odds, atkPow, bOf,
@@ -12,7 +12,7 @@ import * as ST from './stories.js';
 const $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const mob = () => innerWidth <= 760;
-S.hooks = { dayStart: ST.dayStart, dayEnd: ST.dayEnd, storyAnswer: ST.storyAnswer };
+S.hooks = { dayStart: ST.dayStart, dayEnd: ST.dayEnd, storyAnswer: ST.storyAnswer, win: ST.groupWin };
 let tab = 'z', phone = { open: false, app: 'home', chat: null }, setup = { rank: 0, nick: '' }, batching = false, newMsgs = 0;
 
 // ---------- som ----------
@@ -64,13 +64,14 @@ S.on = {
   message: m => {
     if (phone.open && phone.app === 'chat' && phone.chat === m.c) { m.read = 1; return; }
     newMsgs++;
-    if (!batching) { const c = contactById(m.c); result('Nova mensagem', `${c.name}: ${m.t.slice(0, 70)}${m.t.length > 70 ? '…' : ''}`, 'good'); sfx.ping(); }
+    if (!batching && !m.quiet) { const c = contactById(m.c); result('Nova mensagem', `${c.name}: ${m.t.slice(0, 70)}${m.t.length > 70 ? '…' : ''}`, 'good'); sfx.ping(); }
   },
   rankup: (r, u) => dialog(`<h2 style="color:var(--g1)">Promovido: ${esc(S.MD.ranks[r])}</h2><p class="note">Você subiu de cargo e ganhou 1 ponto de habilidade.</p><ul class="rep"><li><span>Liberado</span><b style="color:var(--ok)">${esc(u.label)}</b></li></ul><div class="row"><button class="ghost btn" data-g="close">Fechar</button><button class="gold btn" data-g="career">Ver carreira</button></div>`),
   ach: a => { result('Conquista', `${a.name}: ${a.desc}`, 'good'); sfx.win(); },
   jail: days => dialog(`<h2 style="color:var(--bad)">${S.MD.budget ? 'Afastado do comando' : 'Você foi preso'}</h2><p class="note">${S.MD.budget ? 'A corregedoria te afastou' : 'A operação te pegou'} por ${days} dias. Enquanto isso o seu braço direito comanda os ataques. Pelo celular você ainda fala com todo mundo, compra e vende. O advogado pode cortar o tempo pela metade.</p><button class="gold btn" data-g="close">Entendi</button>`),
   cityEvent: c => dialog(`<h2 style="color:var(--g1)">${esc(c.name)}</h2><p class="note">${esc(c.text)}</p><p class="note">Vale até o dia ${c.until}.</p><button class="gold btn" data-g="close">Entendi</button>`),
-  final: f => { const F = FINALS[S.G.mode]; sfx.lose(); dialog(`<h2 style="color:var(--bad)">${esc(F.name)}</h2><p class="note">Os rivais se uniram contra ${esc(S.G.pname)}. Até o fim do dia ${f.until} eles vão atacar juntos e com mais força.</p><ul class="rep"><li><span>Para vencer</span><b>Segurar ${Math.round(E.FIN_HOLD * 100)}% e a sua base</b></li><li><span>Ou</span><b>Chegar a ${Math.round(goal * 100)}% do mapa</b></li></ul><p class="note">Tem uma escolha esperando no celular.</p><div class="row"><button class="ghost btn" data-g="close">Fechar</button><button class="gold btn" data-g="zapnow">Abrir celular</button></div>`); },
+  final: f => { const F = FINALS[S.G.mode]; sfx.lose(); dialog(`<h2 style="color:var(--bad)">${esc(F.name)}</h2><p class="note">Os rivais se uniram contra ${esc(S.G.pname)}. Até o fim do dia ${f.until} eles vão atacar juntos e com mais força.</p><ul class="rep"><li><span>Para vencer</span><b>Segurar ${Math.round(E.FIN_HOLD * 100)}% e a sua base</b></li><li><span>Depois</span><b>Tomar a cidade inteira</b></li></ul><p class="note">Tem uma escolha esperando no celular.</p><div class="row"><button class="ghost btn" data-g="close">Fechar</button><button class="gold btn" data-g="zapnow">Abrir celular</button></div>`); },
+  chapter: F => { sfx.win(); dialog(`<small class="note" style="letter-spacing:.14em;text-transform:uppercase">Capítulo vencido</small><h2 style="color:var(--g1)">${esc(F.name)}</h2><p class="note" style="color:var(--ink)">${esc(F.win)}</p><ul class="rep"><li><span>Prêmio</span><b style="color:var(--ok)">${fmt(5000)} e 300 de respeito</b></li><li><span>Rivais</span><b>perderam 20% da tropa</b></li><li><span>Próximo objetivo</span><b>100% de ${esc(S.MD.city)}</b></li></ul><button class="gold btn" data-g="close">Seguir</button>`); },
   over: k => {
     const win = k === 'win'; win ? sfx.win() : sfx.lose(); const F = FINALS[S.G.mode];
     dialog(`${win ? `<small class="note" style="letter-spacing:.14em;text-transform:uppercase">Final</small>` : ''}<h2 style="color:${win ? 'var(--g1)' : 'var(--bad)'}">${win ? esc(F.title) : 'Fim da linha'}</h2>${win ? `<p class="note" style="color:var(--ink)">${esc(F.epi)}</p>` : ''}<p class="note">${esc(S.G.why)}</p>
@@ -90,7 +91,7 @@ function renderHUD() {
   <div class="stat"><small>Tropa · base</small><strong>${pTroops()} · ${g.reserve}</strong></div>
   <div class="stat"><small>Fuzis · pistolas</small><strong>${g.rif} · ${g.pis}</strong></div>
   <div class="stat"><small>${S.MD.heat}</small><div class="bar"><i style="width:${g.heat}%;background:${hc}"></i></div></div>
-  <div class="stat" title="Ao chegar em ${Math.round(E.FIN_AT * 100)}% começa a reta final"><small>Domínio ${share}%${share < E.FIN_AT * 100 ? ` · meta ${Math.round(E.FIN_AT * 100)}%` : ''}</small><div class="bar"><i style="width:${Math.min(100, share / E.FIN_AT)}%;background:var(--gold)"></i></div></div>
+  ${(() => { const fd = g.fin && g.fin.done, tg = fd ? 100 : Math.round(E.FIN_AT * 100); return `<div class="stat" title="${fd ? 'Domine a cidade inteira para vencer' : 'Ao chegar em ' + tg + '% começa a reta final'}"><small>Domínio ${share}% · meta ${tg}%</small><div class="bar"><i style="width:${Math.min(100, share / tg * 100)}%;background:var(--gold)"></i></div></div>`; })()}
   ${E.jailed() ? `<div class="stat"><small>${S.MD.budget ? 'Afastado' : 'Preso'}</small><strong style="color:var(--bad)">até o dia ${g.jail.until}</strong></div>` : ''}
   ${E.finOn() ? `<div class="stat"><small>${esc(FINALS[g.mode].name)}</small><strong style="color:var(--bad)">até o dia ${g.fin.until}</strong></div>` : ''}
   ${g.cev && g.cev.until >= g.day ? `<div class="stat"><small>Evento</small><strong style="color:var(--g1)">${esc(g.cev.name)} · ${g.cev.until - g.day + 1}d</strong></div>` : ''}
@@ -140,6 +141,26 @@ function jailCard() {
   return `<div class="career" style="background:rgba(255,91,79,.08);border-color:rgba(255,91,79,.35)"><small class="note">${S.MD.budget ? 'Afastado' : 'Preso'} até o dia ${g.jail.until}</small><br><strong style="font-size:17px">Seu braço direito comanda os ataques. Você segue no celular.</strong>
     <button class="ghost btn act" data-a="lawyer" style="margin:10px 0 0" ${g.money >= 5000 ? '' : 'disabled'}><span>Pagar o advogado<small>Corta o tempo pela metade</small></span><em>${fmt(5000)}</em></button></div>`;
 }
+let bcat = 'neg';
+function buildBox(i) {
+  const g = S.G, d = g.d[i], sl = E.slotsOf(i), built = bOf(i), cb = can('build'), sv = E.srvInc(i);
+  let h = `<h4>Construções ${d.b.length}/${sl}${sv ? ` · serviços rendem ${fmt(sv)}/dia` : ''}</h4>`;
+  h += built.map(b => {
+    const lv = E.lvOf(i, b.id), p = E.srvP(i, b.id), up = lv < 3 ? E.upCost(b, lv) : 0;
+    return `<div class="bcard"><div class="bh"><b>${esc(b.name)}</b><span class="chip lv">Nível ${lv}</span></div>
+      <small>${b.cat === 'srv' ? `Rende ${fmt(E.srvEst(i, b, lv, p))} por dia ${['e o povo gosta', 'a preço justo', 'mas o povo reclama'][p]}` : esc(b.desc) + (lv > 1 ? ` · efeito ×${BLV[lv - 1].toFixed(1).replace('.', ',')}` : '')}</small>
+      ${b.cat === 'srv' && cb ? `<div class="seg mini">${SRV_P.map(([l, , ly], k) => `<button data-a="srvp" data-n="${b.id}|${k}" class="${p === k ? 'on' : ''}">${l}<small>${ly > 0 ? '+' : ''}${String(ly).replace('.', ',')} lealdade</small></button>`).join('')}</div>` : ''}
+      ${cb && lv < 3 ? `<button class="ghost btn act sm" data-a="up" data-n="${b.id}" ${g.acts && g.money >= up ? '' : 'disabled'}><span>Melhorar para nível ${lv + 1}</span><em>${fmt(up)} · 1 ação</em></button>` : ''}</div>`;
+  }).join('');
+  if (d.b.length < sl) h += `<div class="slot empty">${sl - d.b.length} espaço${sl - d.b.length > 1 ? 's' : ''} livre${sl - d.b.length > 1 ? 's' : ''} nesta zona</div>`;
+  if (!cb || d.b.length >= sl) return h;
+  const av = S.MD.builds.filter(b => !d.b.includes(b.id)), cats = Object.keys(BCAT).filter(c => av.some(b => b.cat === c));
+  if (!cats.includes(bcat)) bcat = cats[0];
+  h += `<h4>Construir aqui</h4><div class="seg cats">${cats.map(c => `<button data-bcat="${c}" class="${bcat === c ? 'on' : ''}">${esc(BCAT[c].replace('Serviços para o morador', 'Serviços'))}</button>`).join('')}</div>`;
+  if (bcat === 'srv') h += `<p class="note" style="margin:0 0 8px">Serviços são cobrados do morador. Você escolhe o preço: barato agrada, caro rende mais e irrita.</p>`;
+  h += av.filter(b => b.cat === bcat).map(b => `<button class="ghost btn act" data-a="build" data-n="${b.id}" ${g.acts && g.money >= b.cost ? '' : 'disabled'}><span>${esc(b.name)}<small>${b.cat === 'srv' ? `${esc(b.desc)}. Aqui rende cerca de ${fmt(E.srvEst(i, b))}/dia` : esc(b.desc)}</small></span><em>${fmt(b.cost)} · 1 ação</em></button>`).join('');
+  return h;
+}
 function tutCard() {
   if (!E.tutShow()) return '';
   const g = S.G, L = E.tutList(), done = L.filter(x => g.tut.d[x.k]).length;
@@ -151,7 +172,7 @@ function finCard() {
   const g = S.G, F = FINALS[g.mode], share = owned(0).length / S.M.N, left = g.fin.until - g.day + 1, ok = share >= E.FIN_HOLD && g.d[g.base].o === 0;
   return `<div class="career fin"><small class="note">${esc(F.name)} · ${left > 1 ? `faltam ${left} dias` : 'último dia'}</small><br><strong style="font-size:17px">Segure ${Math.round(E.FIN_HOLD * 100)}% do mapa e a sua base até o fim do dia ${g.fin.until}</strong>
     <div class="meter"><i style="width:${Math.round(clamp(share / E.FIN_AT, 0, 1) * 100)}%;background:${ok ? 'var(--ok)' : 'var(--bad)'}"></i></div>
-    <p class="note" style="margin:6px 0 0">Você tem ${Math.round(share * 100)}% agora. ${ok ? 'Por enquanto está segurando.' : '<strong style="color:var(--bad)">Abaixo do mínimo: retome zonas.</strong>'} Os rivais estão unidos e atacam mais. Com ${Math.round(goal * 100)}% a vitória é na hora.</p></div>`;
+    <p class="note" style="margin:6px 0 0">Você tem ${Math.round(share * 100)}% agora. ${ok ? 'Por enquanto está segurando.' : '<strong style="color:var(--bad)">Abaixo do mínimo: retome zonas.</strong>'} Os rivais estão unidos e atacam mais. Vencendo o cerco, a aliança desmorona e fica o caminho para tomar a cidade inteira.</p></div>`;
 }
 function buffList() { const b = E.buffs(); return b.length ? `<div class="buffs">${b.map(x => `<span class="chip">${esc(x.name)} · até o dia ${x.until}</span>`).join('')}</div>` : ''; }
 function objCard() {
@@ -192,9 +213,8 @@ function tabZone() {
     { const [cl, cc] = comLabel(comLevel(i)); h += `<p class="note" style="margin-top:-6px">Comércio <b style="color:${cc}">${cl.toLowerCase()}</b>${g.zsale[i] != null ? ` · vendeu ontem <b style="color:var(--ink)">${fmt(g.zsale[i])}</b> ${S.MD.shopIn}` : ''}.</p>`; }
     if (d.l < 25) h += `<p class="note" style="color:var(--bad)">Lealdade baixa: risco de denúncia e de revolta. Baixe a taxa ou construa algo para o povo.</p>`;
     h += `<h4>Mover tropa · sem ação</h4>` + (can('crew') ? `<div class="row"><button class="ghost btn" data-a="dep" data-n="5" ${g.reserve ? '' : 'disabled'}>Mandar 5</button><button class="ghost btn" data-a="dep" data-n="all" ${g.reserve ? '' : 'disabled'}>Mandar todos (${g.reserve})</button></div><div class="row"><button class="ghost btn" data-a="wd" data-n="5" ${d.t ? '' : 'disabled'}>Recolher 5</button><button class="ghost btn" data-a="wd" data-n="all" ${d.t ? '' : 'disabled'}>Recolher todos</button></div>` : lockBox('crew'));
-    h += `<h4>Construções ${d.b.length}/3</h4><div class="slots">${bOf(i).map(b => `<div class="slot"><i></i><span><b>${esc(b.name)}</b> · ${esc(b.desc)}</span></div>`).join('')}${Array.from({ length: 3 - d.b.length }, () => '<div class="slot empty">Espaço livre</div>').join('')}</div>`;
-    if (can('build')) { if (d.b.length < 3) h += S.MD.builds.filter(b => !d.b.includes(b.id)).map(b => `<button class="ghost btn act" data-a="build" data-n="${b.id}" ${g.acts && g.money >= b.cost ? '' : 'disabled'}><span>${esc(b.name)}<small>${esc(b.desc)}</small></span><em>${fmt(b.cost)} · 1 ação</em></button>`).join(''); }
-    else h += lockBox('build');
+    h += buildBox(i);
+    if (!can('build')) h += lockBox('build');
     const tn = E.tenOf(i);
     h += `<h4>Tenente da zona</h4>`;
     if (!can('build')) h += lockBox('build', 'Nomear tenentes');
@@ -282,7 +302,7 @@ function renderPhone() {
     let lastDay = 0, body = '';
     for (const m of ms) {
       if (m.d !== lastDay) { body += `<span class="day">Dia ${m.d}</span>`; lastDay = m.d; }
-      body += `<div class="bub ${m.me ? 'out' : 'in'}">${esc(m.t)}<time>${m.me ? '21:4' + (m.id % 10) : '21:3' + (m.id % 10)}</time></div>`;
+      body += `<div class="bub ${m.me ? 'out' : 'in'}">${m.who ? `<b class="who" style="color:${avColor(m.who)}">${esc(m.who)}</b>` : ''}${esc(m.t)}<time>${m.me ? '21:4' + (m.id % 10) : '21:3' + (m.id % 10)}</time></div>`;
       if (m.st === 'open') body += `<div class="opts">${m.opts.map((o, oi) => `<button data-a="ans" data-m="${m.id}" data-n="${oi}">${esc(o.l)}</button>`).join('')}</div>`;
       else if (m.st === 'expired') body += `<span class="exp">Sem resposta. A oportunidade passou.</span>`;
     }
@@ -398,7 +418,7 @@ const HOW = `<h2>Como jogar</h2><ul class="rep txt">
  <li>Na visão Ataque do mapa, verde é alvo fácil e vermelho é suicídio. O que está apagado está fora de alcance.</li>
  <li>Lealdade alta faz o povo defender a zona. Lealdade baixa gera denúncia e revolta. Construções e taxa baixa ajudam.</li>
  <li>Os rivais planejam ataques um dia antes. Com olheiros ou câmeras, você é avisado e pode reforçar.</li>
- <li>Ao chegar em 40% do mapa (a partir do dia 12) começa a reta final: os rivais se unem contra você. Segure 35% e a sua base até o fim do cerco para vencer. Dominar 65% ou eliminar todos os rivais também vence.</li><li>Se um rival chegar a 65% do mapa, você perde.</li></ul><button class="gold btn" data-g="close">Entendi</button>`;
+ <li>O objetivo é dominar a cidade inteira, zona por zona.</li><li>Ao chegar em 40% do mapa (a partir do dia 12) vem a reta final: os rivais se unem contra você. Segure 35% e a sua base até o fim do cerco para quebrar a aliança. Rival quase sem território pode propor se render.</li><li>Cada zona tem espaços para construir. Negócios dão lucro, serviços são cobrados do morador com o preço que você escolher, e tudo pode subir até o nível 3.</li><li>Se um rival chegar a 65% do mapa, você perde.</li></ul><button class="gold btn" data-g="close">Entendi</button>`;
 
 // ---------- eventos ----------
 document.addEventListener('click', async e => {
@@ -422,6 +442,7 @@ document.addEventListener('click', async e => {
   if (D.confirm) { store.del(SAVE + D.confirm); closeDlg(); await newGame(D.confirm); setup = { rank: 0, nick: setup.nick }; return enterGame(); }
   if (D.cont) { if (await resume(D.cont)) enterGame(); return; }
   if (D.tab) { const p = $('#panel'); if (mob() && D.tab === tab && !p.classList.contains('min')) p.classList.add('min'); else { p.classList.remove('min'); tab = D.tab; } sfx.click(); return renderPanel(); }
+  if (D.bcat) { bcat = D.bcat; sfx.click(); return renderPanel(); }
   if (D.view) { MAP.setView(D.view); sfx.click(); return renderViews(); }
   if (D.sel) { S.sel = +D.sel; if (S.G.phase === 'play' && S.G.d[S.sel].o !== 0) E.tut('look'); MAP.focusOn(S.sel, true); tab = 'z'; return refresh(); }
   if (D.z) { if (D.z === 'home') { if (S.G.base != null) MAP.focusOn(S.G.base, true); else MAP.fitAll(); } else MAP.zoom(D.z === 'in' ? 1 : -1); return; }
