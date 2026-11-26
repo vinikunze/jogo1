@@ -17,7 +17,12 @@ export const store = {
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} },
   del(k) { try { localStorage.removeItem(k); } catch (e) {} },
 };
-const emit = (ev, ...a) => { const f = S.on[ev]; if (f) f(...a); };
+export const emit = (ev, ...a) => { const f = S.on[ev]; if (f) f(...a); };
+export const modv = k => { const c = S.G && S.G.cev; return c && c.until >= S.G.day && c.m[k] != null ? c.m[k] : (k === 'noAtk' ? 0 : 1); };
+export const rel = id => (S.G.rel && S.G.rel[id] != null) ? S.G.rel[id] : 50;
+export function addRel(id, d) { const g = S.G; g.rel = g.rel || {}; g.rel[id] = clamp(rel(id) + d, 0, 100); }
+export const hasType = (...t) => owned(0).some(i => t.includes(S.M.type[i]));
+export const PERS = { agressivo: 'Agressivo: ataca com pouca vantagem', cauteloso: 'Cauteloso: junta tropa e só ataca na certa', 'traiçoeiro': 'Traiçoeiro: pode quebrar trégua', negociador: 'Negociador: costuma propor paz' };
 
 // ---------- mapas ----------
 const MAPS = {};
@@ -44,7 +49,7 @@ export const sk = id => !!S.G.skills[id];
 export const rankName = (r = S.G.rank) => S.MD.ranks[r];
 export const can = key => S.G.rank >= UNLOCK.findIndex(u => u.key === key);
 export const unlockRank = key => UNLOCK.findIndex(u => u.key === key);
-export const skillPoints = () => S.G.rank + 1 + Math.floor(Math.max(0, S.G.xp - XP[5]) / 700) - Object.keys(S.G.skills).length;
+export const skillPoints = () => S.G.rank + 1 + (S.G.bonusSP || 0) + Math.floor(Math.max(0, S.G.xp - XP[5]) / 700) - Object.keys(S.G.skills).length;
 export const pTroops = () => S.G.reserve + sum(owned(0).map(i => S.G.d[i].t));
 export function pq() { const g = S.G, T = pTroops(); if (!T) return 1; const f = Math.min(g.rif, T), p = Math.min(g.pis, T - f); return (1.8 * f + 1.1 * p + .6 * (T - f - p)) / T; }
 export const qOf = o => o === 0 ? pq() : o > 0 ? S.G.f[o - 1].q : .95;
@@ -53,7 +58,7 @@ const beff = (i, k) => sum(bOf(i).map(b => b.eff[k] || 0));
 export function defVal(i) {
   const d = S.G.d[i];
   let v = Math.max(.5, d.t) * qOf(d.o) * S.M.dm(i) * (1 + beff(i, 'def'));
-  if (d.o === 0) v *= (.75 + .5 * d.l / 100) * (sk('def') ? 1.2 : 1) * (i === S.G.base ? 1.5 : 1);
+  if (d.o === 0) v *= (.75 + .5 * d.l / 100) * (sk('def') ? 1.2 : 1) * (i === S.G.base ? 1.5 * (rel('braco') >= 80 ? 1.2 : 1) : 1);
   return v;
 }
 export function incOf(i, asOwner = 0) {
@@ -69,9 +74,10 @@ export const maxActs = () => Math.min(6, 3 + Math.floor(owned(0).length / 8) + (
 export const ATK_COST = 2;
 export const truceWith = o => o > 0 && (S.G.f[o - 1].truce || 0) >= S.G.day;
 export const reach = i => { const d = S.G.d[i]; return d.o !== 0 && !truceWith(d.o) && S.M.adj[i].some(j => S.G.d[j].o === 0); };
-export const recruitCost = () => sk('rec') ? 450 : 600;
-export const bribeCost = () => 400 + 20 * S.G.heat;
-export const heatMul = () => sk('heat') ? .7 : 1;
+export const recruitCost = () => Math.round((sk('rec') ? 450 : 600) * modv('rec') * (owned(0).filter(i => S.M.type[i] === 'comunidade').length >= 2 ? .85 : 1));
+export const bribeCost = () => Math.round((400 + 20 * S.G.heat) * (hasType('centro', 'capitale') ? .7 : 1) * (1.2 - rel('politico') / 100 * .4));
+export const heatMul = () => (sk('heat') ? .7 : 1) * modv('heat');
+export const pAtkMul = () => (sk('atk') ? 1.15 : 1) * (S.G.perk && S.G.perk.vet ? 1.1 : 1);
 export const goal = .5;
 export function intelAt(i) { return owned(0).some(j => (j === i || S.M.adj[j].includes(i)) && beff(j, 'intel') > 0); }
 export const visible = i => S.G.d[i].o === 0 || sk('intel') || (S.G.seen[i] || 0) >= S.G.day || intelAt(i);
@@ -81,12 +87,12 @@ export function est(i) {
 }
 export function estDef(i) { if (visible(i)) return defVal(i); const [a, b] = est(i), t = S.G.d[i].t; return defVal(i) * ((a + b) / 2) / Math.max(.5, t); }
 export const odds = r => r > 1.5 ? ['Vitória quase certa', '#5fd48a'] : r > 1.15 ? ['Boa chance', '#b6e36b'] : r > .9 ? ['Equilibrado', '#f0cf5a'] : r > .6 ? ['Arriscado', '#ff9a52'] : ['Suicídio', '#ff5b4f'];
-export const atkPow = n => n * pq() * (sk('atk') ? 1.15 : 1);
+export const atkPow = n => n * pq() * pAtkMul();
 export const storage = () => 300 + sum(owned(0).map(i => beff(i, 'stor')));
 export const comLevel = i => ZT[S.M.type[i]].com * S.M.mult[i];
 export const comLabel = v => v >= 1.45 ? ['Forte', '#5fd48a'] : v >= 1 ? ['Médio', '#f0cf5a'] : ['Fraco', '#ff9a52'];
 export const priceOf = (id, tier = S.G.pt[id]) => { const gd = S.MD.goods.find(x => x.id === id); return Math.round(gd.ref * TIERS[tier][1] * (sk('trade') ? 1.1 : 1)); };
-export const buyPrice = id => Math.round(S.G.px.buy[id] * (sk('trade') ? .9 : 1));
+export const buyPrice = id => Math.round(S.G.px.buy[id] * (sk('trade') ? .9 : 1) * (hasType('porto', 'costa') ? .9 : 1) * (1 - (rel('fornecedor') - 50) / 50 * .12));
 export function demandZone(i, gd, d = S.G.d[i]) {
   const g = S.G, comp = S.M.adj[i].some(j => g.d[j].o > 0) ? .8 : 1;
   return gd.dem * comLevel(i) * (gd.pref[S.M.type[i]] || 1) * (.7 + .6 * d.l / 100) * (1 + beff(i, 'dem')) * comp * ((g.mev && g.mev.z === i) ? g.mev.f : 1);
@@ -121,7 +127,7 @@ export async function newGame(mode) {
   S.G = {
     v: 4, mode, phase: 'setup', pname: MDx.player, nick: '', day: 1, money: 3500, reserve: 15, pis: 20, rif: 2, heat: 10, acts: 3, rank: 0, xp: 0,
     skills: {}, over: null, log: [], base: null, seen: {}, plans: [], msgs: [], stock: {}, cost: {}, pt: {}, mood: {}, px: { buy: {} }, hist: [], last: {}, zsale: {}, extra: 0, auto: true, mev: null, join: null,
-    ach: {}, stats: { won: 0, lost: 0, sold: 0, built: 0, held: 0, aiWon: 0 }, lastFavor: 0, mid: 1,
+    rel: {}, ach: {}, stats: { won: 0, lost: 0, sold: 0, built: 0, held: 0, aiWon: 0, missions: 0 }, lastFavor: 0, mid: 1,
     f: MDx.rivals.map(r => ({ name: r.name, color: r.color, pool: r.pool, money: 1500, q: 1.0, alive: true, truce: 0 })),
     d: Mx.z.map((z, i) => ({ o: -1, t: Math.round(RI(...ZT[z.t].gar) * 1.6 * Mx.mult[i]), b: [], l: ZT[z.t].loy, tx: 1 })),
   };
@@ -133,7 +139,7 @@ export async function newGame(mode) {
 function placeRivals() {
   const g = S.G, M_ = S.M, strs = [...RIVAL_STR].sort(() => Math.random() - .5), starts = [];
   g.f.forEach((F, k) => {
-    const P = strs[k % strs.length]; Object.assign(F, { str: P.lbl, q: P.q, money: P.money });
+    const P = strs[k % strs.length]; Object.assign(F, { str: P.lbl, q: P.q, money: P.money, pers: pick(Object.keys(PERS)) });
     const okT = j => F.pool === 'any' || M_.type[j] === F.pool;
     let cand = [...Array(M_.N).keys()].filter(j => g.d[j].o === -1 && M_.type[j] !== 'capitale' && okT(j));
     if (!cand.length) cand = [...Array(M_.N).keys()].filter(j => g.d[j].o === -1 && M_.type[j] !== 'capitale');
@@ -149,7 +155,8 @@ export async function resume(mode) {
   S.MD = MODES[mode]; S.M = await loadMap(S.MD.map); S.G = s;
   for (const [k, v] of Object.entries({ cost: {}, pt: {}, mood: {}, hist: [], last: {}, zsale: {}, extra: 0, auto: true, mev: null, stock: {}, px: { buy: {} } })) if (s[k] == null) s[k] = v;
   for (const gd of S.MD.goods) { if (s.stock[gd.id] == null) s.stock[gd.id] = 0; if (s.cost[gd.id] == null) s.cost[gd.id] = gd.buy || 0; if (s.pt[gd.id] == null) s.pt[gd.id] = 2; if (s.mood[gd.id] == null) s.mood[gd.id] = 1; if (gd.buy && !s.px.buy[gd.id]) s.px.buy[gd.id] = gd.buy; }
-  s.f.forEach(F => { if (!F.str) F.str = 'médio'; }); S.sel = null; S.flash = null; return true;
+  s.f.forEach(F => { if (!F.str) F.str = 'médio'; if (!F.pers) F.pers = pick(Object.keys(PERS)); });
+  if (!s.rel) s.rel = {}; S.sel = null; S.flash = null; return true;
 }
 export function startAt(i, rank, nick) {
   const g = S.G, M_ = S.M;
@@ -191,6 +198,7 @@ function welcome() {
 }
 const enemyNear = () => { const s = new Set(); owned(0).forEach(i => S.M.adj[i].forEach(j => { if (S.G.d[j].o !== 0) s.add(j); })); return [...s]; };
 export function dailyMessages() {
+  if (S.hooks && S.hooks.dayStart) S.hooks.dayStart();
   const g = S.G, M_ = S.M, mine = owned(0), near = enemyNear(), w = W();
   const zn = i => M_.z[i].n;
   const pool = [];
@@ -233,14 +241,14 @@ export function dailyMessages() {
     }
     const q2 = RI(2, 8) * 10, p2 = Math.round(gd.ref * R(1.2, 1.45));
     pool.push(() => msg('comprador', `Quero ${q2} de ${gd.name.toLowerCase()} a ${fmt(p2)} cada, hoje. Tem?`, [{ l: `Vendo (${fmt(q2 * p2)})`, k: 'oferta', p: { g: gd.id, q: q2, price: p2 } }, { l: 'Não tenho', k: 'nada' }]));
-    if (g.heat > 45) { const cost = 2500 + g.heat * 25; pool.push(() => msg('politico', `Ando ouvindo seu nome por aí. Com ${fmt(cost)} eu seguro ${W().cops} por um tempo.`, [{ l: 'Pago', k: 'politico', p: { cost } }, { l: 'Não preciso', k: 'nada' }])); }
+    if (g.heat > 45) { const cost = Math.round((2500 + g.heat * 25) * modv('pol')); pool.push(() => msg('politico', `Ando ouvindo seu nome por aí. Com ${fmt(cost)} eu seguro ${W().cops} por um tempo.`, [{ l: 'Pago', k: 'politico', p: { cost } }, { l: 'Não preciso', k: 'nada' }])); }
   }
   const n = Math.min(pool.length, g.rank <= 1 ? 3 : 2 + (g.rank >= 4 ? 1 : 0));
   for (let k = 0; k < n; k++) { const ix = Math.floor(Math.random() * pool.length); pool.splice(ix, 1)[0](); }
   // avisos de ataque planejado
   for (const p of g.plans) {
     if (p.o === 0 || g.d[p.b].o !== 0) continue;
-    const seen = sk('intel') || intelAt(p.b) || Math.random() < .3;
+    const seen = sk('intel') || intelAt(p.b) || (g.double || 0) >= g.day || Math.random() < .15 + rel('olheiro') / 100 * .45;
     if (!seen) continue;
     const F = g.f[p.o - 1];
     msg('olheiro', `Atenção: ${F.name} tá juntando uns ${Math.round(g.d[p.a].t * R(.8, 1.2))} perto de ${zn(p.b)}. Vão entrar amanhã.`,
@@ -251,13 +259,18 @@ export function answer(id, oi) {
   const g = S.G, m = g.msgs.find(x => x.id === id); if (!m || m.st !== 'open') return;
   const o = m.opts[oi]; m.st = 'done'; m.chosen = oi; me(m.c, o.l);
   g.msgs.forEach(x => { if (x.c === m.c) x.read = 1; });
-  const r = (MA[o.k] || MA.nada)(o.p || {}, m);
+  const RD = { vigiar: ['chefe', 3], entrega: ['chefe', 3], cobranca: ['chefe', 2], ordem: ['chefe', 4], recruta: [m.c, 2], lote: ['fornecedor', 4], oferta: ['comprador', 4], politico: ['politico', 6], aviso: ['olheiro', 3] };
+  if (RD[o.k]) addRel(RD[o.k][0], RD[o.k][1]);
+  if (o.k === 'nada' && (m.c === 'chefe' || m.c === 'olheiro')) addRel(m.c, -2);
+  if (['vigiar', 'entrega', 'cobranca', 'ordem'].includes(o.k)) g.stats.missions = (g.stats.missions || 0) + 1;
+  const r = o.k === 'story' ? (S.hooks && S.hooks.storyAnswer ? S.hooks.storyAnswer(m, o) : null) : (MA[o.k] || MA.nada)(o.p || {}, m);
   if (r) msg(m.c, r).read = 1;
   checkRank(); checkAch(); saveGame(); emit('change');
 }
 const zname = i => S.M.z[i].n;
 const MA = {
   nada: () => pick(['Beleza.', 'Tranquilo.', 'Fica pra próxima.', 'Ok.']),
+  story_truce({ k }) { const g = S.G, F = g.f[k]; F.truce = g.day + 7; F.truceFrom = g.day; g.plans = g.plans.filter(p => !(p.o === k + 1 && g.d[p.b].o === 0)); return 'Fechado. 7 dias de paz.'; },
   vigiar({ z }) {
     const g = S.G;
     if (Math.random() < .12) { g.heat = Math.min(100, g.heat + 3 * heatMul()); addXP(5); return 'Quase te pegaram. Saiu fora a tempo, mas chamou atenção.'; }
@@ -267,7 +280,7 @@ const MA = {
   entrega({ z, pay }) {
     const g = S.G;
     if (Math.random() < .1 + g.heat / 400) { g.heat = Math.min(100, g.heat + 8 * heatMul()); g.money -= Math.round(pay / 2); addXP(8); return `Deu ruim. ${W().cops[0].toUpperCase() + W().cops.slice(1)} pararam no caminho e a gente perdeu ${fmt(pay / 2)}.`; }
-    g.money += pay; addXP(30); return `Chegou certinho em ${zname(z)}. ${fmt(pay)} no caixa. É isso.`;
+    pay = Math.round(pay * (.8 + .4 * rel('chefe') / 100)); g.money += pay; addXP(30); return `Chegou certinho em ${zname(z)}. ${fmt(pay)} no caixa. É isso.`;
   },
   cobranca({ z, firm }) {
     const g = S.G, v = firm ? RI(6, 9) * 100 : RI(3, 5) * 100;
@@ -339,7 +352,7 @@ export function checkAch() {
 // ---------- combate ----------
 export function fight(att, n, i, bonus = 1) {
   const g = S.G, d = g.d[i];
-  const A = n * qOf(att) * bonus * (att === 0 && sk('atk') ? 1.15 : 1) * R(.85, 1.15), D = defVal(i) * R(.85, 1.15);
+  const A = n * qOf(att) * bonus * (att === 0 ? pAtkMul() : 1) * R(.85, 1.15), D = defVal(i) * R(.85, 1.15);
   const mA = att === 0 && sk('med') ? .75 : 1, mD = d.o === 0 && sk('med') ? .75 : 1;
   if (A > D) return { win: true, aLoss: Math.min(n - 1, Math.round(n * (D / A) * .6 * mA)), dLoss: d.t };
   return { win: false, aLoss: Math.round(n * R(.45, .75) * mA), dLoss: Math.min(d.t, Math.round(d.t * (A / D) * .55 * mD)) };
@@ -378,6 +391,7 @@ export const A = {
   attack(n) {
     const g = S.G, i = S.sel, d = g.d[i]; n = +n;
     if (!can('attack') || !n || n > g.reserve || !reach(i)) return;
+    if (modv('noAtk')) { emit('toast', 'Ninguém se mexe', `${g.cev.name}: ataques suspensos até o dia ${g.cev.until}.`, 'bad'); return; }
     if (g.acts < ATK_COST) { emit('toast', 'Sem ações', `Atacar gasta ${ATK_COST} ações. Encerre o dia.`, 'bad'); return; }
     const prev = d.o, pn = oname(prev), from = S.M.adj[i].filter(j => g.d[j].o === 0).sort((a, b) => g.d[b].t - g.d[a].t)[0];
     g.reserve -= n; g.acts -= ATK_COST;
@@ -406,7 +420,7 @@ export const A = {
     const ok = Math.random() < (owned(k + 1).length < owned(0).length ? .7 : .35);
     const c = 'rival' + k;
     me(c, `Proposta: trégua de 7 dias. ${fmt(2500)} na mesa pra selar.`);
-    if (ok) { F.truce = g.day + 7; g.plans = g.plans.filter(p => !(p.o === k + 1 && g.d[p.b].o === 0)); msg(c, 'Fechado. 7 dias sem guerra. Não vacila.'); }
+    if (ok) { F.truce = g.day + 7; F.truceFrom = g.day; g.plans = g.plans.filter(p => !(p.o === k + 1 && g.d[p.b].o === 0)); msg(c, 'Fechado. 7 dias sem guerra. Não vacila.'); }
     else msg(c, 'Pegamos o dinheiro e a resposta é não.');
   },
   endDay,
@@ -415,7 +429,10 @@ export const A = {
 // ---------- IA ----------
 function planFor(o, rep) {
   const g = S.G, mine = owned(o), q = qOf(o), used = new Set();
-  const tries = Math.min(2, 1 + Math.floor(g.day / 7));
+  if (modv('noAtk')) return;
+  const pers = o > 0 ? g.f[o - 1].pers : null;
+  const tries = Math.min(pers === 'agressivo' ? 3 : 2, 1 + Math.floor(g.day / 7) + (pers === 'agressivo' ? 1 : 0));
+  const ratio = pers === 'agressivo' ? 1.15 : pers === 'cauteloso' ? 1.6 : 1.3;
   if (o === 0 && g.join != null) {
     const b = g.join, a = S.M.adj[b].filter(j => g.d[j].o === 0).sort((x, y) => g.d[y].t - g.d[x].t)[0];
     if (a != null && g.d[b].o !== 0) { g.plans.push({ o, a, b, bonus: 1.15, join: 1 }); used.add(a); }
@@ -430,8 +447,8 @@ function planFor(o, rep) {
       for (const b of S.M.adj[a]) {
         const db = g.d[b]; if (db.o === o) continue;
         if ((o > 0 && db.o === 0 && truceWith(o)) || (o === 0 && truceWith(db.o))) continue;
-        const def = defVal(b), att = (ta - 1) * q; if (att < def * (o > 0 && db.o === 0 ? 1.45 : 1.3)) continue;
-        const s = S.M.val[b] / (def + 1) * (db.o === -1 ? 1.15 : 1) * (db.o === lead ? 1.4 : 1) * (o > 0 && db.o === 0 ? .9 : 1);
+        const def = defVal(b), att = (ta - 1) * q; if (att < def * (o > 0 && db.o === 0 ? ratio + .15 : ratio)) continue;
+        const s = S.M.val[b] / (def + 1) * (db.o === -1 ? 1.15 : 1) * (db.o === lead ? 1.4 : 1) * (o > 0 && db.o === 0 ? ((g.hate || 0) >= g.day ? 1.6 : .9) : 1) * (g.war && g.war.until >= g.day && o - 1 === g.war.a && db.o - 1 === g.war.b || g.war && g.war.until >= g.day && o - 1 === g.war.b && db.o - 1 === g.war.a ? 1.8 : 1);
         if (s > bs) { bs = s; best = [a, b]; }
       }
     }
@@ -444,7 +461,7 @@ function aiEconomy(o) {
     const F = g.f[o - 1], T = sum(mine.map(i => g.d[i].t));
     F.money += sum(mine.map(i => S.M.val[i])) * .6 / (1 + mine.length / 14) + 200 - 7 * T;
     if (F.money > 3000 && F.q < 1.6 && Math.random() < .35) { F.money -= 2500; F.q = Math.min(1.6, F.q + .1); }
-    const buy = Math.floor(Math.max(0, F.money - 500) / 60 * .3);
+    const buy = Math.floor(Math.max(0, F.money - 500) / 60 * (F.pers === 'cauteloso' ? .4 : .3));
     if (buy > 0) { F.money -= buy * 60; distribute(o, buy); }
   } else {
     if (g.money > 3200 && g.pis < pTroops()) { g.money -= 600; g.pis += 10; }
@@ -460,13 +477,14 @@ function distribute(o, n) {
 }
 function runPlans(rep) {
   const g = S.G, plans = g.plans; g.plans = [];
+  if (modv('noAtk')) return;
   for (const p of plans.sort(() => Math.random() - .5)) {
     const da = g.d[p.a], db = g.d[p.b];
     if (da.o !== p.o || db.o === p.o || da.t < 3) continue;
     if (p.o > 0 && !g.f[p.o - 1].alive) continue;
     if ((p.o > 0 && db.o === 0 && truceWith(p.o)) || (p.o === 0 && truceWith(db.o))) continue;
     const n = da.t - 1, prev = db.o; da.t = 1;
-    const r = fight(p.o, n, p.b, p.bonus);
+    const r = fight(p.o, n, p.b, p.bonus * (p.o > 0 && prev === 0 && (g.leak || 0) >= g.day ? 1.2 : 1));
     const nm = zname(p.b);
     if (r.win) {
       conquer(p.b, p.o, n - r.aLoss);
@@ -518,7 +536,7 @@ function sales(rep) {
   const g = S.G; let ven = 0, cmv = 0, lost = 0; g.zsale = {}; g.last = {};
   const mine = owned(0);
   for (const gd of S.MD.goods) {
-    const tq = tierQ(g.pt[gd.id]), mood = g.mood[gd.id] || 1;
+    const tq = tierQ(g.pt[gd.id]), mood = (g.mood[gd.id] || 1) * modv('dem');
     const per = mine.map(i => demandZone(i, gd) * tq * mood * R(.8, 1.2)), dem = Math.round(sum(per));
     const sold = Math.min(g.stock[gd.id], dem), price = priceOf(gd.id), rev = sold * price, cost = sold * (g.cost[gd.id] || 0);
     g.stock[gd.id] -= sold; ven += rev; cmv += cost; lost += Math.max(0, dem - sold) * price;
@@ -534,7 +552,7 @@ function loyaltyTick(rep) {
   const g = S.G;
   for (const i of owned(0)) {
     const d = g.d[i];
-    let dl = (50 - d.l) * .04 + beff(i, 'loy') * (sk('loy') ? 1.5 : 1) + [2, 0, -3][d.tx ?? 1] - (g.heat > 70 ? 1 : 0);
+    let dl = (50 - d.l) * .04 + beff(i, 'loy') * (sk('loy') ? 1.5 : 1) + [2, 0, -3][d.tx ?? 1] - (g.heat > 70 ? 1 : 0) + (rel('morador') >= 70 ? 1 : rel('morador') <= 25 ? -1 : 0);
     d.l = clamp(d.l + dl, 0, 100);
     if (d.l < 20 && Math.random() < .25) {
       if (Math.random() < .35 && i !== g.base) { g.d[i] = { o: -1, t: RI(5, 8), b: [], l: 50, tx: 1 }; S.flash = i; log(`Os moradores de ${zname(i)} se revoltaram e expulsaram a sua tropa.`, 'bad'); rep.push(['bad', `Revolta em ${zname(i)}`, 'zona perdida']); }
@@ -544,7 +562,7 @@ function loyaltyTick(rep) {
 }
 function events(rep) {
   const g = S.G, mine = owned(0);
-  if (Math.random() < g.heat / 150 && mine.length) {
+  if (Math.random() < g.heat / 150 * modv('raid') * (g.arrego && g.arrego.until >= g.day ? .4 : 1) * ((g.cops || 0) >= g.day ? 1.5 : 1) && mine.length) {
     const i = mine.reduce((a, b) => g.d[b].t > g.d[a].t ? b : a), l = Math.round(g.d[i].t * R(.3, .55)), m = Math.max(0, Math.round(g.money * .1));
     g.d[i].t -= l; g.money -= m; g.heat = Math.max(0, g.heat - 10); loseWeapons(l); g.d[i].l = clamp(g.d[i].l - 5, 0, 100);
     let lost = 0; for (const gd of S.MD.goods) { if (gd.buy) { const s = Math.round(g.stock[gd.id] * .4); g.stock[gd.id] -= s; lost += s; } }
@@ -572,7 +590,7 @@ export function endDay() {
   const luc = sv.ven + (g.extra || 0) - sv.cmv - (g.xcost || 0) + inc - up;
   const H = { d: g.day, ven: sv.ven + (g.extra || 0), cmv: sv.cmv + (g.xcost || 0), arr: inc, sal: up, luc, lost: Math.round(sv.lost), buys: g.buys || 0 };
   g.extra = 0; g.xcost = 0; g.buys = 0;
-  rep.push(['good', `Vendas nas ${S.MD.shop}`, '+' + fmt(H.ven)], ['bad', 'Custo da mercadoria vendida', '-' + fmt(H.cmv)], ['good', S.MD.budget ? 'Orçamento e arrecadação' : 'Arrecadação das zonas', '+' + fmt(inc)], ['bad', 'Salários', '-' + fmt(up)]);
+  rep.push(['good', `Vendas ${S.MD.shopIn}`, '+' + fmt(H.ven)], ['bad', 'Custo da mercadoria vendida', '-' + fmt(H.cmv)], ['good', S.MD.budget ? 'Orçamento e arrecadação' : 'Arrecadação das zonas', '+' + fmt(inc)], ['bad', 'Salários', '-' + fmt(up)]);
   if (H.lost > 200) rep.push(['bad', 'Vendas perdidas por falta de mercadoria', fmt(H.lost)]);
   if (g.money < 0) { let lost = Math.ceil(g.reserve * .15); g.reserve -= lost; for (const i of owned(0)) { const l = Math.ceil(g.d[i].t * .15); g.d[i].t -= l; lost += l; } loseWeapons(lost); log(`Caixa no vermelho: ${lost} ${S.MD.unit} abandonaram você.`, 'bad'); rep.push(['bad', 'Caixa no vermelho: deserção', `-${lost}`]); }
   loyaltyTick(rep);
@@ -587,6 +605,7 @@ export function endDay() {
   events(rep);
   H.caixa = g.money; g.hist.push(H); if (g.hist.length > 120) g.hist.shift(); g.lastPL = H;
   newPrices(); autoBuy(!can('market')); g.cash0 = g.money;
+  if (S.hooks && S.hooks.dayEnd) S.hooks.dayEnd(rep);
   for (const m of g.msgs) if (m.st === 'open') { m.st = 'expired'; }
   g.day++; g.acts = maxActs(); addXP(5);
   checkRank(); checkAch(); checkEnd();

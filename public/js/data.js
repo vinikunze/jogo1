@@ -66,7 +66,7 @@ export const MODES = {
       { id: 'comum', name: 'Carga comum', unit: 'un.', buy: 30, ref: 70, dem: 1.2, pref: { comunidade: 1.4, suburbio: 1.1, periferia: 1, nobre: .6, centro: 1, porto: .9 } },
       { id: 'premium', name: 'Carga premium', unit: 'un.', buy: 95, ref: 200, dem: 0.33, pref: { nobre: 2.2, centro: 1.6, comunidade: .5, suburbio: .7, periferia: .4, porto: .9 } },
       { id: 'eletro', name: 'Eletrônicos desviados', unit: 'un.', buy: 60, ref: 125, dem: 0.53, pref: { suburbio: 1.4, centro: 1.3, periferia: 1.1, comunidade: 1, nobre: .6, porto: 1.1 } },
-    ], shop: 'bancas',
+    ], shop: 'bancas', shopIn: 'nas bancas',
     builds: [
       { id: 'baile', name: 'Baile da comunidade', desc: '+3 lealdade e +R$ 120 por dia', cost: 1800, eff: { loy: 3, inc: 120 } },
       { id: 'contencao', name: 'Contenção', desc: '+35% de defesa', cost: 1500, eff: { def: .35 } },
@@ -95,7 +95,7 @@ export const MODES = {
       { id: 'gas', name: 'Botijões de gás', unit: 'bot.', buy: 55, ref: 100, dem: 0.9, pref: { periferia: 1.4, suburbio: 1.2, comunidade: 1.1, nobre: .3, centro: .5, porto: .6 } },
       { id: 'tv', name: 'Assinaturas de gatonet', unit: 'ass.', buy: 18, ref: 50, dem: 1.35, pref: { suburbio: 1.3, periferia: 1.2, comunidade: 1.2, nobre: .5, centro: .6, porto: .7 } },
       { id: 'agua', name: 'Galões de água', unit: 'gal.', buy: 6, ref: 16, dem: 3.3, pref: { periferia: 1.3, suburbio: 1.1, comunidade: 1.1, nobre: .6, centro: .7, porto: .8 } },
-    ], shop: 'pontos de serviço',
+    ], shop: 'pontos de serviço', shopIn: 'nos pontos de serviço',
     builds: [
       { id: 'gas', name: 'Central de gás', desc: '+R$ 260 por dia, -1 lealdade', cost: 1600, eff: { inc: 260, loy: -1 } },
       { id: 'net', name: 'Central de serviços', desc: '+60% de vendas e +R$ 80 por dia', cost: 1300, eff: { dem: .6, inc: 80 } },
@@ -122,7 +122,7 @@ export const MODES = {
       C('advogado', 'Assessoria jurídica', 'Jurídico', 3), C('comprador', 'Leiloeiro Ramos', 'Leilão de apreensões', 4), C('politico', 'Secretário Paiva', 'Secretaria de Segurança', 4)],
     goods: [
       { id: 'apreensao', name: 'Material apreendido (leilão)', unit: 'lotes', buy: null, ref: 60, dem: 0.75, pref: {} },
-    ], shop: 'leilões',
+    ], shop: 'leilões', shopIn: 'nos leilões',
     builds: [
       { id: 'base', name: 'Base comunitária', desc: '+30% de defesa, +3 lealdade', cost: 2000, eff: { def: .3, loy: 3 } },
       { id: 'cameras', name: 'Câmeras e inteligência', desc: 'Vê a tropa dos vizinhos, avisa ataque, +10% defesa', cost: 1200, eff: { intel: 1, def: .1 } },
@@ -151,7 +151,7 @@ export const MODES = {
       { id: 'cigarros', name: 'Cigarros de contrabando', unit: 'pct.', buy: 20, ref: 48, dem: 1.5, pref: { citta: 1.2, costa: 1.1, capitale: 1.4, campagna: .8 } },
       { id: 'vinho', name: 'Vinho sem selo', unit: 'cx.', buy: 40, ref: 88, dem: 0.75, pref: { capitale: 1.5, costa: 1.3, citta: 1.1, campagna: .7 } },
       { id: 'porto', name: 'Mercadoria do porto', unit: 'cx.', buy: 85, ref: 170, dem: 0.36, pref: { costa: 1.8, capitale: 1.6, citta: 1, campagna: .5 } },
-    ], shop: 'negócios',
+    ], shop: 'negócios', shopIn: 'nos negócios',
     builds: [
       { id: 'cassino', name: 'Cassino clandestino', desc: '+R$ 320 por dia, +1 de pressão', cost: 2200, eff: { inc: 320, heat: 1 } },
       { id: 'ristorante', name: 'Restaurante de fachada', desc: '+R$ 140 por dia, -1 de pressão', cost: 1400, eff: { inc: 140, heat: -1 } },

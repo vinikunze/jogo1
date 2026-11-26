@@ -7,10 +7,12 @@ import {
 } from './engine.js';
 import * as MAP from './map.js';
 import * as E from './engine.js';
+import * as ST from './stories.js';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const mob = () => innerWidth <= 760;
+S.hooks = { dayStart: ST.dayStart, dayEnd: ST.dayEnd, storyAnswer: ST.storyAnswer };
 let tab = 'z', phone = { open: false, app: 'home', chat: null }, setup = { rank: 0, nick: '' }, batching = false, newMsgs = 0;
 
 // ---------- som ----------
@@ -66,6 +68,7 @@ S.on = {
   },
   rankup: (r, u) => dialog(`<h2 style="color:var(--g1)">Promovido: ${esc(S.MD.ranks[r])}</h2><p class="note">Você subiu de cargo e ganhou 1 ponto de habilidade.</p><ul class="rep"><li><span>Liberado</span><b style="color:var(--ok)">${esc(u.label)}</b></li></ul><div class="row"><button class="ghost btn" data-g="close">Fechar</button><button class="gold btn" data-g="career">Ver carreira</button></div>`),
   ach: a => { result('Conquista', `${a.name}: ${a.desc}`, 'good'); sfx.win(); },
+  cityEvent: c => dialog(`<h2 style="color:var(--g1)">${esc(c.name)}</h2><p class="note">${esc(c.text)}</p><p class="note">Vale até o dia ${c.until}.</p><button class="gold btn" data-g="close">Entendi</button>`),
   over: k => {
     const win = k === 'win'; win ? sfx.win() : sfx.lose();
     dialog(`<h2 style="color:${win ? 'var(--g1)' : 'var(--bad)'}">${win ? 'A cidade é sua' : 'Fim da linha'}</h2><p class="note">${esc(S.G.why)}</p>
@@ -86,6 +89,7 @@ function renderHUD() {
   <div class="stat"><small>Fuzis · pistolas</small><strong>${g.rif} · ${g.pis}</strong></div>
   <div class="stat"><small>${S.MD.heat}</small><div class="bar"><i style="width:${g.heat}%;background:${hc}"></i></div></div>
   <div class="stat"><small>Domínio ${share}%</small><div class="bar"><i style="width:${Math.min(100, share / goal)}%;background:var(--gold)"></i></div></div>
+  ${g.cev && g.cev.until >= g.day ? `<div class="stat"><small>Evento</small><strong style="color:var(--g1)">${esc(g.cev.name)} · ${g.cev.until - g.day + 1}d</strong></div>` : ''}
   <div class="stat"><small>Ações</small><div class="dots">${Array.from({ length: maxActs() }, (_, k) => `<i class="${k < g.acts ? 'on' : ''}"></i>`).join('')}</div></div>`}</div>
   ${ph ? '' : `<button class="hbtn phone ${ur ? 'pulse' : ''}" data-g="phone" aria-label="Celular">${I.phone}${ur ? `<span class="badge">${ur}</span>` : ''}</button>`}
   <button class="hbtn ghost snd" data-g="sound" aria-label="Som">${sound ? I.on : I.off}</button><button class="hbtn ghost" data-g="menu" aria-label="Menu">${I.menu}</button>`;
@@ -123,9 +127,17 @@ function baseInfo(i) {
   const g0 = S.MD.goods[0], sale = Math.round(demandZone(i, g0, { l: 70 }) * (g0.ref - (g0.buy || 0)));
   const str = { forte: '#ff5b4f', 'médio': '#f0cf5a', fraco: '#5fd48a' };
   return `<div class="kv"><div><small>Comércio</small><strong style="color:${cc}">${cl}</strong></div><div><small>Risco</small><strong style="color:${rc}">${rl}</strong></div><div><small>Renda/dia</small><strong>${fmt(tax + sale)}</strong></div></div>
-    <ul class="rep" style="margin:0 0 12px"><li><span>Arrecadação estimada</span><b>${fmt(tax)}</b></li><li><span>Lucro de ${esc(g0.name.toLowerCase())} na ${S.MD.shop.split(' ')[0].replace(/s$/, '')}</span><b>~${fmt(sale)}</b></li>
+    <ul class="rep" style="margin:0 0 12px"><li><span>Arrecadação estimada</span><b>${fmt(tax)}</b></li><li><span>Lucro de ${esc(g0.name.toLowerCase())} ${S.MD.shopIn}</span><b>~${fmt(sale)}</b></li>
     ${near.length ? near.map(r => `<li><span><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${r.F.color};margin-right:6px"></i>${esc(r.F.name)} ${r.dist === 1 ? 'é vizinho' : 'está a 2 zonas'}</span><b style="color:${str[r.F.str]}">${r.F.str}</b></li>`).join('') : '<li><span>Nenhum rival por perto</span><b style="color:var(--ok)">tranquilo</b></li>'}</ul>`;
 }
+function objCard() {
+  const o = ST.objProgress(); if (!o) return '';
+  const left = o.until - S.G.day;
+  return `<div class="career" style="background:rgba(95,212,138,.07);border-color:rgba(95,212,138,.3)"><small class="note">Meta da semana · ${left > 0 ? `faltam ${left} dia${left > 1 ? 's' : ''}` : 'último dia'}</small><br><strong style="font-size:17px">${esc(o.text)}</strong>
+    <div class="meter"><i style="width:${Math.round(o.pct * 100)}%;background:var(--ok)"></i></div><p class="note" style="margin:6px 0 0">${o.money ? `${fmt(o.a)} de ${fmt(o.b)}` : `${o.a} de ${o.b}`}</p></div>`;
+}
+function relBar(id) { const v = Math.round(E.rel(id)), c = v >= 70 ? 'var(--ok)' : v <= 30 ? 'var(--bad)' : '#f0cf5a'; return `<span style="display:inline-flex;align-items:center;gap:6px;color:#8696a0;font-size:12px">confiança <span class="xp" style="width:44px"><i style="width:${v}%;background:${c}"></i></span> ${v}</span>`; }
+const ZBONUS = { porto: 'Ter porto deixa a mercadoria do fornecedor 10% mais barata.', costa: 'Ter litoral deixa a mercadoria do fornecedor 10% mais barata.', centro: 'Ter o centro deixa os acertos 30% mais baratos.', capitale: 'Ter a Capital deixa os acertos 30% mais baratos.', comunidade: 'Com 2 comunidades, recrutar fica 15% mais barato.' };
 function tabSetup() {
   const i = S.sel, ok = i != null && canStart(i);
   const sug = [...Array(S.M.N).keys()].filter(canStart).sort((a, b) => comLevel(b) - comLevel(a)).slice(0, 8);
@@ -137,14 +149,14 @@ function tabSetup() {
     <button class="gold btn act" data-a="start"><span>Começar aqui</span><em>dia 1</em></button></div>`
     : `<p class="note">${i != null ? esc(S.M.z[i].n) + ' não pode ser base neste modo. ' : ''}Toque numa zona dourada ou escolha abaixo.</p>`}
   <h4>Opções de base</h4><div class="tgt">${sug.map(j => { const [cl, cc] = comLabel(comLevel(j)), [rl, rc] = riskOf(j); return `<button class="ghost" data-sel="${j}"><b>${esc(S.M.z[j].n)}</b><span><span style="color:${cc}">Comércio ${cl.toLowerCase()}</span> · <span style="color:${rc}">risco ${rl.toLowerCase()}</span></span></button>`; }).join('')}</div>
-  <h4>Rivais na cidade</h4><div class="legend">${S.G.f.map((f, k) => `<div><i style="background:${f.color}"></i>${esc(f.name)}<span style="color:${str[f.str]}">${f.str}</span></div>`).join('')}</div>`;
+  <h4>Rivais na cidade</h4><div class="legend">${S.G.f.map((f, k) => `<div><i style="background:${f.color}"></i><span style="margin:0;color:var(--ink)">${esc(f.name)}<br><small class="note">${esc(E.PERS[f.pers] || '')}</small></span><span style="color:${str[f.str]}">${f.str}</span></div>`).join('')}</div>`;
 }
 function tabZone() {
   const g = S.G;
   if (g.phase === 'setup') return tabSetup();
   if (S.sel == null) {
     const t = targets(), ur = unread();
-    return careerCard() + (ur ? `<button class="gold btn act" data-g="phone"><span>${ur} mensage${ur > 1 ? 'ns' : 'm'} no celular</span><em>abrir</em></button>` : '') +
+    return careerCard() + objCard() + (ur ? `<button class="gold btn act" data-g="phone"><span>${ur} mensage${ur > 1 ? 'ns' : 'm'} no celular</span><em>abrir</em></button>` : '') +
       (can('attack') ? `<h4>Alvos ao seu alcance</h4><div class="tgt">${t.length ? t.map(([i, r]) => { const [o, c] = odds(r); return `<button class="ghost" data-sel="${i}"><b>${esc(S.M.z[i].n)}</b><span style="color:${c}">${visible(i) ? o : o + '?'}</span></button>`; }).join('') : '<p class="note">Nenhum alvo por enquanto.</p>'}</div>`
         : `<h4>Sua missão</h4><p class="note">Como ${esc(rankName())}, quem decide os ataques é o chefe. Cumpra as missões do celular para ganhar respeito e subir de cargo. Toque numa zona para ver detalhes.</p>${lockBox('attack')}`);
   }
@@ -153,7 +165,7 @@ function tabZone() {
   if (mine) {
     const lc = d.l < 30 ? 'var(--bad)' : d.l < 60 ? '#f0cf5a' : 'var(--ok)';
     h += `<div class="kv"><div><small>Tropa</small><strong>${d.t}</strong></div><div><small>Lealdade</small><strong style="color:${lc}">${Math.round(d.l)}</strong><div class="meter"><i style="width:${d.l}%;background:${lc}"></i></div></div><div><small>Rende/dia</small><strong>${fmt(incOf(i))}</strong></div></div>`;
-    { const [cl, cc] = comLabel(comLevel(i)); h += `<p class="note" style="margin-top:-6px">Comércio <b style="color:${cc}">${cl.toLowerCase()}</b>${g.zsale[i] != null ? ` · vendeu ontem <b style="color:var(--ink)">${fmt(g.zsale[i])}</b> nas ${S.MD.shop}` : ''}.</p>`; }
+    { const [cl, cc] = comLabel(comLevel(i)); h += `<p class="note" style="margin-top:-6px">Comércio <b style="color:${cc}">${cl.toLowerCase()}</b>${g.zsale[i] != null ? ` · vendeu ontem <b style="color:var(--ink)">${fmt(g.zsale[i])}</b> ${S.MD.shopIn}` : ''}.</p>`; }
     if (d.l < 25) h += `<p class="note" style="color:var(--bad)">Lealdade baixa: risco de denúncia e de revolta. Baixe a taxa ou construa algo para o povo.</p>`;
     h += `<h4>Mover tropa · sem ação</h4>` + (can('crew') ? `<div class="row"><button class="ghost btn" data-a="dep" data-n="5" ${g.reserve ? '' : 'disabled'}>Mandar 5</button><button class="ghost btn" data-a="dep" data-n="all" ${g.reserve ? '' : 'disabled'}>Mandar todos (${g.reserve})</button></div><div class="row"><button class="ghost btn" data-a="wd" data-n="5" ${d.t ? '' : 'disabled'}>Recolher 5</button><button class="ghost btn" data-a="wd" data-n="all" ${d.t ? '' : 'disabled'}>Recolher todos</button></div>` : lockBox('crew'));
     h += `<h4>Construções ${d.b.length}/3</h4><div class="slots">${bOf(i).map(b => `<div class="slot"><i></i><span><b>${esc(b.name)}</b> · ${esc(b.desc)}</span></div>`).join('')}${Array.from({ length: 3 - d.b.length }, () => '<div class="slot empty">Espaço livre</div>').join('')}</div>`;
@@ -163,7 +175,7 @@ function tabZone() {
     return h;
   }
   h += `<div class="kv"><div><small>Tropa</small><strong>${vis ? d.t : `${lo}-${hi}?`}</strong></div><div><small>Defesa</small><strong>${Math.round(ZT[S.M.type[i]].def * 100)}%</strong></div><div><small>Rende/dia</small><strong>${fmt(S.M.val[i] * (S.MD.inc[S.M.type[i]] || 1) * (S.MD.budget ? .4 : 1))}</strong></div></div>`;
-  { const [cl, cc] = comLabel(comLevel(i)); h += `<p class="note" style="margin-top:-6px">Comércio <b style="color:${cc}">${cl.toLowerCase()}</b>. Se for sua, aumenta as vendas nas ${S.MD.shop}.</p>`; }
+  { const [cl, cc] = comLabel(comLevel(i)); h += `<p class="note" style="margin-top:-6px">Comércio <b style="color:${cc}">${cl.toLowerCase()}</b>. Se for sua, aumenta as vendas ${S.MD.shopIn}.${ZBONUS[S.M.type[i]] ? ' ' + ZBONUS[S.M.type[i]] : ''}</p>`; }
   if (!vis) h += `<p class="note">Sem informação exata da tropa. Mande um olheiro ou cumpra uma missão de vigiar.</p>`;
   if (!reach(i)) return h + `<p class="note">${truceWith(d.o) ? 'Você está em trégua com esse grupo.' : 'Fora de alcance. Domine uma zona vizinha primeiro.'}</p>`;
   if (!vis) h += can('crew') ? `<button class="ghost btn act" data-a="scout" ${g.acts && g.money >= 200 ? '' : 'disabled'}><span>Mandar olheiro<small>Mostra a tropa exata por 4 dias</small></span><em>${fmt(200)} · 1 ação</em></button>` : '';
@@ -178,14 +190,14 @@ function tabZone() {
 }
 function tabCmd() {
   const g = S.G, inc = pIncome(), up = upkeep();
-  let h = careerCard() + `<button class="ghost btn act" data-g="career"><span>Carreira e habilidades</span><em>abrir no celular</em></button>`;
+  let h = careerCard() + objCard() + `<button class="ghost btn act" data-g="career"><span>Carreira e habilidades</span><em>abrir no celular</em></button>`;
   h += `<h4>Loja · sem ação</h4>`;
   h += can('crew') ? `<div class="shop"><button class="ghost" data-a="buy" data-n="sol">${I.sol}<span><b>${esc(S.MD.recruit[0])}</b><small>${esc(S.MD.recruit[1])}</small></span><em>${fmt(recruitCost())}</em></button>` +
     (can('attack') ? `<button class="ghost" data-a="buy" data-n="pis">${I.pis}<span><b>10 pistolas</b><small>Cada ${S.MD.u1} armado bate mais forte</small></span><em>${fmt(600)}</em></button><button class="ghost" data-a="buy" data-n="rif">${I.rif}<span><b>5 fuzis</b><small>O que mais pesa no confronto</small></span><em>${fmt(1800)}</em></button></div><p class="note">Poder da tropa: <b style="color:var(--g1)">x${pq().toFixed(2)}</b>. Sem arma 0,6, pistola 1,1, fuzil 1,8.</p>` : `</div>${lockBox('attack', 'Comprar armas')}`) : lockBox('crew');
   h += `<h4>Pressão: ${S.MD.heat.toLowerCase()} em ${Math.round(g.heat)}</h4>` + (can('market') ? `<button class="ghost btn act" data-a="bribe" ${g.heat <= 0 || !g.acts ? 'disabled' : ''}><span>${esc(S.MD.bribe)}</span><em>${fmt(bribeCost())} · 1 ação</em></button>` : lockBox('market', 'Fazer acertos'));
   h += `<h4>Finanças do dia</h4><ul class="rep" style="margin-top:0"><li><span>Entra</span><b style="color:var(--ok)">+${fmt(inc)}</b></li><li><span>Salários (${pTroops()} × R$ 8)</span><b style="color:var(--bad)">-${fmt(up)}</b></li><li><span>Saldo</span><b>${fmt(inc - up)}</b></li></ul>`;
   h += `<h4>Quem manda</h4><div class="legend"><div><i style="background:${S.MD.color}"></i><b>${esc(g.pname)}</b><span>${owned(0).length} zonas · x${pq().toFixed(2)}</span></div>
-   ${g.f.map((f, k) => `<div class="${f.alive ? '' : 'dead'}"><i style="background:${f.color}"></i>${esc(f.name)}<span>${owned(k + 1).length} zonas · x${f.q.toFixed(2)}</span></div>`).join('')}
+   ${g.f.map((f, k) => `<div class="${f.alive ? '' : 'dead'}"><i style="background:${f.color}"></i><span style="margin:0;color:var(--ink)">${esc(f.name)}<br><small class="note">${esc((f.pers || '') + (truceWith(k + 1) ? ' · em trégua' : ''))}</small></span><span>${owned(k + 1).length} zonas · x${f.q.toFixed(2)}</span></div>`).join('')}
    <div><i style="background:#1a1c21;border:1px solid #6c6f78"></i>Sem dono<span>${owned(-1).length}</span></div></div>`;
   return h;
 }
@@ -246,12 +258,12 @@ function renderPhone() {
     }
     const riv = k.rival != null ? g.f[k.rival] : null;
     if (riv && riv.alive && can('boss')) body += `<div class="opts">${truceWith(k.rival + 1) ? `<span class="exp">Trégua até o dia ${riv.truce}.</span>` : `<button data-a="truce" data-n="${k.rival}" ${g.acts && g.money >= 2500 ? '' : 'disabled'}>Propor trégua de 7 dias (${fmt(2500)} · 1 ação)</button>`}</div>`;
-    h = `<div class="ahead"><button class="back" data-app="zap" aria-label="Voltar">${I.back}</button><span class="av" style="background:${avColor(c)}">${esc(initials(k.name))}</span><div><b>${esc(k.name)}</b><small>${esc(k.role || 'online')}</small></div></div>
+    h = `<div class="ahead"><button class="back" data-app="zap" aria-label="Voltar">${I.back}</button><span class="av" style="background:${avColor(c)}">${esc(initials(k.name))}</span><div><b>${esc(k.name)}</b><small>${esc(k.role || 'online')}</small>${k.rival == null && S.MD.contacts.some(x => x.id === c) ? '<br>' + relBar(c) : ''}</div></div>
       <div class="abody chat" id="chatBody">${body || '<span class="day">Sem mensagens</span>'}</div>`;
   } else if (phone.app === 'con') {
     const av = contacts(), locked = S.MD.contacts.filter(c => g.rank < c.min);
     h = `<div class="ahead"><button class="back" data-app="home" aria-label="Voltar">${I.back}</button><div><b>Contatos</b><small>${av.length} liberados</small></div></div>
-      <div class="abody clist">${av.map(c => `<button data-chat="${esc(c.id)}"><span class="av" style="background:${avColor(c.id)}">${esc(initials(c.name))}</span><span class="mid"><b>${esc(c.name)}</b><span>${esc(c.role)}</span></span></button>`).join('')}
+      <div class="abody clist">${av.map(c => `<button data-chat="${esc(c.id)}"><span class="av" style="background:${avColor(c.id)}">${esc(initials(c.name))}</span><span class="mid"><b>${esc(c.name)}</b><span>${esc(c.role)}${c.rival != null ? ' · ' + esc(S.G.f[c.rival].pers || '') : ''}</span>${c.rival == null ? relBar(c.id) : ''}</span></button>`).join('')}
       ${locked.map(c => `<button disabled><span class="av" style="background:#333">${I.lock}</span><span class="mid"><b>${esc(c.role)}</b><span>Libera no cargo ${esc(S.MD.ranks[c.min])}</span></span></button>`).join('')}
       ${g.rank < 5 ? `<button disabled><span class="av" style="background:#333">${I.lock}</span><span class="mid"><b>Chefes rivais</b><span>Libera no cargo ${esc(S.MD.ranks[5])}</span></span></button>` : ''}</div>`;
   } else if (phone.app === 'mkt') {
@@ -279,7 +291,7 @@ function renderPhone() {
       h += `<div class="good"><small class="note">Resultado do dia ${L.d}</small><div style="font-family:var(--disp);font-size:40px;line-height:1.1;color:${L.luc >= 0 ? 'var(--ok)' : 'var(--bad)'}">${L.luc >= 0 ? '+' : ''}${fmt(L.luc)}</div>
         <p class="note" style="margin:2px 0 0">${P ? `${dv >= 0 ? '▲' : '▼'} ${fmt(Math.abs(dv))} em relação ao dia anterior · ` : ''}média de 7 dias ${fmt(avg)}${best ? ` · melhor dia: ${best.d} (${fmt(best.luc)})` : ''}</p></div>
         <h3>Lucro por dia</h3>${plChart(H.slice(-14))}
-        <h3>Dia ${L.d} em detalhe</h3><ul class="rep" style="margin-top:0"><li><span>Vendas nas ${S.MD.shop}</span><b style="color:var(--ok)">+${fmt(L.ven)}</b></li><li><span>Custo da mercadoria</span><b style="color:var(--bad)">-${fmt(L.cmv)}</b></li><li><span>Arrecadação</span><b style="color:var(--ok)">+${fmt(L.arr)}</b></li><li><span>Salários</span><b style="color:var(--bad)">-${fmt(L.sal)}</b></li><li><span>Lucro</span><b>${fmt(L.luc)}</b></li><li><span>Comprou de estoque</span><b>${fmt(L.buys)}</b></li>${L.lost > 0 ? `<li><span>Deixou de vender (faltou mercadoria)</span><b style="color:#ff9a52">${fmt(L.lost)}</b></li>` : ''}</ul>
+        <h3>Dia ${L.d} em detalhe</h3><ul class="rep" style="margin-top:0"><li><span>Vendas ${S.MD.shopIn}</span><b style="color:var(--ok)">+${fmt(L.ven)}</b></li><li><span>Custo da mercadoria</span><b style="color:var(--bad)">-${fmt(L.cmv)}</b></li><li><span>Arrecadação</span><b style="color:var(--ok)">+${fmt(L.arr)}</b></li><li><span>Salários</span><b style="color:var(--bad)">-${fmt(L.sal)}</b></li><li><span>Lucro</span><b>${fmt(L.luc)}</b></li><li><span>Comprou de estoque</span><b>${fmt(L.buys)}</b></li>${L.lost > 0 ? `<li><span>Deixou de vender (faltou mercadoria)</span><b style="color:#ff9a52">${fmt(L.lost)}</b></li>` : ''}</ul>
         <h3>Últimos dias</h3><ul class="rep" style="margin-top:0">${H.slice(-7).reverse().map(x => `<li><span>Dia ${x.d} · caixa ${fmt(x.caixa)}</span><b style="color:${x.luc >= 0 ? 'var(--ok)' : 'var(--bad)'}">${x.luc >= 0 ? '+' : ''}${fmt(x.luc)}</b></li>`).join('')}</ul>`;
     }
     h += '</div>';
