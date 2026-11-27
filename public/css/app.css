@@ -324,3 +324,12 @@ button.link{background:none;border:0;color:var(--mu);font:inherit;font-size:12px
 @media (max-width:820px){.tgrid{grid-template-columns:1fr}.thead h2{font-size:30px}.trow.pair{flex-direction:column}.or{margin:2px auto}}
 .tnode.st-have,.tnode.st-have:disabled{opacity:1!important;color:var(--ink)}.tnode.st-have small{color:#c9c6bd}
 .thead .btn{flex-shrink:0}
+/* pedidos com prazo */
+.career.ords{border-color:rgba(240,207,90,.4);background:linear-gradient(135deg,rgba(240,207,90,.1),rgba(240,207,90,.02))}
+.ord{padding:10px 0;border-top:1px solid var(--ln)}
+.ord:first-of-type{border-top:0}
+.ord .oh{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.ord .oh span{font-size:13px;color:var(--mu)}
+.ord>small{display:block;color:var(--mu);font-size:13px;margin-top:3px;line-height:1.35}
+.ord .row2{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.ord .row2 .btn{width:auto;flex:1 1 auto;margin-top:0}

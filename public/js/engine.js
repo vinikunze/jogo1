@@ -186,6 +186,7 @@ export function riskOf(i) {
   const v = sum(rivalsNear(i).map(r => w[r.F.str] / r.dist));
   return v >= 3 ? ['Alto', '#ff5b4f'] : v >= 1.5 ? ['Médio', '#f0cf5a'] : ['Baixo', '#5fd48a'];
 }
+export const reserved = id => Math.min(S.G.stock[id] || 0, (S.G.ord || []).filter(o => (o.st === 'active' || o.st === 'late') && o.good === id).reduce((a, o) => a + o.q, 0));
 export const stockTotal = () => sum(Object.values(S.G.stock));
 export const contacts = () => (S.G.rank >= 1 ? [GROUP()] : []).concat(S.MD.contacts.filter(c => S.G.rank >= c.min && S.G.rank <= c.max))
   .concat(S.G.rank >= 5 ? S.G.f.map((f, k) => ({ id: 'rival' + k, name: f.name, role: f.alive ? 'Rival' : 'Eliminado', rival: k })) : []);
@@ -339,7 +340,7 @@ export function answer(id, oi) {
   if (RD[o.k]) addRel(RD[o.k][0], RD[o.k][1]);
   if (o.k === 'nada' && (m.c === 'chefe' || m.c === 'olheiro')) addRel(m.c, -2);
   if (['vigiar', 'entrega', 'cobranca', 'ordem'].includes(o.k)) g.stats.missions = (g.stats.missions || 0) + 1;
-  const r = o.k === 'story' ? (S.hooks && S.hooks.storyAnswer ? S.hooks.storyAnswer(m, o) : null) : (MA[o.k] || MA.nada)(o.p || {}, m);
+  const r = o.k === 'story' ? (S.hooks && S.hooks.storyAnswer ? S.hooks.storyAnswer(m, o) : null) : o.k === 'ord' ? (S.hooks && S.hooks.orderAnswer ? S.hooks.orderAnswer(m, o) : null) : (MA[o.k] || MA.nada)(o.p || {}, m);
   if (r) msg(m.c, r).read = 1;
   checkRank(); checkAch(); saveGame(); emit('change');
 }
@@ -652,7 +653,7 @@ function sales(rep) {
   for (const gd of S.MD.goods) {
     const tq = tierQ(g.pt[gd.id]), mood = (g.mood[gd.id] || 1) * modv('dem');
     const per = mine.map(i => demandZone(i, gd) * tq * mood * R(.8, 1.2)), dem = Math.round(sum(per));
-    const sold = Math.min(g.stock[gd.id], dem), price = priceOf(gd.id), rev = sold * price, cost = sold * (g.cost[gd.id] || 0);
+    const sold = Math.max(0, Math.min(g.stock[gd.id] - reserved(gd.id), dem)), price = priceOf(gd.id), rev = sold * price, cost = sold * (g.cost[gd.id] || 0);
     g.stock[gd.id] -= sold; ven += rev; cmv += cost; lost += Math.max(0, dem - sold) * price;
     const tot = sum(per) || 1; mine.forEach((i, k) => { g.zsale[i] = (g.zsale[i] || 0) + Math.round(rev * per[k] / tot); });
     g.last[gd.id] = { dem, sold, rev, cost, price };

@@ -8,11 +8,12 @@ import {
 import * as MAP from './map.js';
 import * as E from './engine.js';
 import * as ST from './stories.js';
+import * as OR from './orders.js';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const mob = () => innerWidth <= 760;
-S.hooks = { dayStart: ST.dayStart, dayEnd: ST.dayEnd, storyAnswer: ST.storyAnswer, win: ST.groupWin };
+S.hooks = { dayStart: ST.dayStart, dayEnd: ST.dayEnd, storyAnswer: ST.storyAnswer, win: ST.groupWin, orderAnswer: OR.orderAnswer };
 let tab = 'z', phone = { open: false, app: 'home', chat: null }, setup = { rank: 0, nick: '' }, batching = false, newMsgs = 0;
 
 // ---------- som ----------
@@ -174,6 +175,19 @@ function treeHTML() {
     ${leg}<div class="tgrid">${cols}</div>`;
 }
 function openTree() { let o = $('#treeOv'); if (!o) { o = document.createElement('div'); o.id = 'treeOv'; o.innerHTML = '<div class="tbox"></div>'; document.body.appendChild(o); } o.querySelector('.tbox').innerHTML = treeHTML(); o.classList.remove('hide'); sfx.click(); }
+function ordersCard(compact) {
+  const g = S.G, L = OR.orders(); if (!L.length) return '';
+  return `<div class="career ords"><small class="note">Pedidos com prazo · ${L.length}</small>${L.map(o => {
+    const lf = o.due - g.day, gd = o.cash ? null : S.MD.goods.find(x => x.id === o.good), have = o.cash ? g.money : (g.stock[o.good] || 0), ok = have >= o.q, inc = o.cash ? 0 : OR.incoming(o.good);
+    const who = contactById(o.c).name, when = o.st === 'late' ? '<b style="color:var(--bad)">atrasado</b>' : lf <= 0 ? '<b style="color:var(--bad)">vence hoje</b>' : lf === 1 ? '<b style="color:#f0cf5a">vence amanhã</b>' : `faltam ${lf} dias`;
+    const pct = Math.min(100, Math.round(have / o.q * 100)), [miss, rc] = o.cash ? [0, 0] : OR.rushCost(o);
+    return `<div class="ord"><div class="oh"><b>${esc(who)}</b><span>dia ${o.due} · ${when}</span></div>
+      <small>${o.cash ? `Entregar ${fmt(o.q)} no caixa · volta ${fmt(o.rw)}` : `${o.q} ${esc(gd.unit)} de ${esc(gd.name.toLowerCase())} · ${fmt(o.unit)} cada = ${fmt(o.q * o.unit)}${o.adv ? ` (${fmt(o.adv)} já adiantado)` : ''}`}</small>
+      <div class="meter"><i style="width:${pct}%;background:${ok ? 'var(--ok)' : '#f0cf5a'}"></i></div>
+      <small>${o.cash ? `Você tem ${fmt(have)}` : `No depósito: ${have} de ${o.q}${inc ? ` · ${inc} chegando amanhã` : ''}`}</small>
+      <div class="row2"><button class="gold btn sm" data-a="deliver" data-n="${o.id}" ${ok ? '' : 'disabled'}>Entregar</button>${!o.cash && gd.buy && miss > 0 ? `<button class="ghost btn sm" data-a="rush" data-n="${o.id}" ${g.acts && g.money >= rc ? '' : 'disabled'}>Correr atrás de ${miss} · ${fmt(rc)} · 1 ação</button>` : ''}</div></div>`;
+  }).join('')}</div>`;
+}
 function tutCard() {
   if (!E.tutShow()) return '';
   const g = S.G, L = E.tutList(), done = L.filter(x => g.tut.d[x.k]).length;
@@ -214,7 +228,7 @@ function tabZone() {
   if (g.phase === 'setup') return tabSetup();
   if (S.sel == null) {
     const t = targets(), ur = unread();
-    return finCard() + jailCard() + tutCard() + careerCard() + objCard() + (ur ? `<button class="gold btn act" data-g="phone"><span>${ur} mensage${ur > 1 ? 'ns' : 'm'} no celular</span><em>abrir</em></button>` : '') +
+    return finCard() + jailCard() + ordersCard() + tutCard() + careerCard() + objCard() + (ur ? `<button class="gold btn act" data-g="phone"><span>${ur} mensage${ur > 1 ? 'ns' : 'm'} no celular</span><em>abrir</em></button>` : '') +
       (can('attack') ? `<h4>Alvos ao seu alcance</h4><div class="tgt">${t.length ? t.map(([i, r]) => { const [o, c] = odds(r); return `<button class="ghost" data-sel="${i}"><b>${esc(S.M.z[i].n)}</b><span style="color:${c}">${visible(i) ? o : o + '?'}</span></button>`; }).join('') : '<p class="note">Nenhum alvo por enquanto.</p>'}</div>`
         : `<h4>Sua missão</h4><p class="note">Como ${esc(rankName())}, quem decide os ataques é o chefe. Cumpra as missões do celular para ganhar respeito e subir de cargo. Toque numa zona para ver detalhes.</p>${lockBox('attack')}`);
   }
@@ -253,7 +267,7 @@ function tabZone() {
 }
 function tabCmd() {
   const g = S.G, inc = pIncome(), up = upkeep();
-  let h = finCard() + jailCard() + tutCard() + careerCard() + objCard() + buffList() + `<button class="ghost btn act" data-g="tree"><span>Árvore de habilidades<small>${esc(E.charOf()[0])} · ${skillPoints()} ponto${skillPoints() === 1 ? '' : 's'} livre${skillPoints() === 1 ? '' : 's'}</small></span><em>abrir</em></button><button class="ghost btn act" data-g="career"><span>Carreira e conquistas</span><em>abrir no celular</em></button>`;
+  let h = finCard() + jailCard() + ordersCard() + tutCard() + careerCard() + objCard() + buffList() + `<button class="ghost btn act" data-g="tree"><span>Árvore de habilidades<small>${esc(E.charOf()[0])} · ${skillPoints()} ponto${skillPoints() === 1 ? '' : 's'} livre${skillPoints() === 1 ? '' : 's'}</small></span><em>abrir</em></button><button class="ghost btn act" data-g="career"><span>Carreira e conquistas</span><em>abrir no celular</em></button>`;
   h += `<h4>Loja · sem ação</h4>`;
   h += can('crew') ? `<div class="shop"><button class="ghost" data-a="buy" data-n="sol">${I.sol}<span><b>${esc(S.MD.recruit[0])}</b><small>${esc(S.MD.recruit[1])}</small></span><em>${fmt(recruitCost())}</em></button>` +
     (can('attack') ? `<button class="ghost" data-a="buy" data-n="pis">${I.pis}<span><b>10 pistolas</b><small>Cada ${S.MD.u1} armado bate mais forte</small></span><em>${fmt(600)}</em></button><button class="ghost" data-a="buy" data-n="rif">${I.rif}<span><b>5 fuzis</b><small>O que mais pesa no confronto</small></span><em>${fmt(1800)}</em></button></div><p class="note">Poder da tropa: <b style="color:var(--g1)">x${pq().toFixed(2)}</b>. Sem arma 0,6, pistola 1,1, fuzil 1,8.</p>` : `</div>${lockBox('attack', 'Comprar armas')}`) : lockBox('crew');
@@ -332,6 +346,7 @@ function renderPhone() {
   } else if (phone.app === 'mkt') {
     const cm = can('market');
     h = `<div class="ahead"><button class="back" data-app="home" aria-label="Voltar">${I.back}</button><div><b>Mercado</b><small>Depósito ${stockTotal()} de ${storage()} · ${S.MD.shop}</small></div></div><div class="abody app-pad">`;
+    h += ordersCard();
     h += cm ? `<button class="ghost btn act" data-a="auto" style="margin-bottom:12px"><span>Compra automática<small>Repõe o estoque quando o fornecedor está barato</small></span><em style="color:${g.auto ? 'var(--ok)' : 'var(--mu)'}">${g.auto ? 'ligada' : 'desligada'}</em></button>`
       : lockBox('market', 'Definir preço e comprar do fornecedor') + `<p class="note" style="margin-top:0">Por enquanto a firma vende a preço médio e compra no automático. Você acompanha os números.</p>`;
     h += S.MD.goods.map(gd => {
@@ -475,6 +490,8 @@ document.addEventListener('click', async e => {
   if (a === 'trade') { const [op, id, q] = D.n.split('|'); A.trade(op, id, q); saveGame(); return refresh(); }
   if (a === 'attack') { A.attack(+($('#amt')?.value || 0)); saveGame(); return refresh(); }
   if (a === 'truce') { A.truce(+D.n); saveGame(); return refresh(); }
+  if (a === 'deliver') { OR.deliver(+D.n); return refresh(); }
+  if (a === 'rush') { OR.rush(+D.n); return refresh(); }
   if (A[a]) { A[a](D.n); saveGame(); refresh(); }
 });
 document.addEventListener('input', e => { if (e.target.id === 'amt') updOdds(); if (e.target.id === 'nick') setup.nick = e.target.value; });
@@ -485,4 +502,4 @@ addEventListener('resize', () => { if (S.G && !$('#game').classList.contains('hi
   try { await loadMap('rio'); } catch (e) {}
   $('#loading').remove(); $('#menu').classList.remove('hide'); renderMenu();
 })();
-window.__DDC = { S, A, MAP, E, ST, endDay: doEndDay, refresh };
+window.__DDC = { S, A, MAP, E, ST, OR, endDay: doEndDay, refresh };

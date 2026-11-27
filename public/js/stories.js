@@ -3,6 +3,7 @@
 import {
   S, R, RI, pick, sum, clamp, fmt, owned, can, msg, log, addXP, addRel, rel, rankName, oname, intelAt, pTroops, emit, addBuf, arrest, underdog, sk, addKarma, kGood, kBad,
 } from './engine.js';
+import { orderStart, orderEnd } from './orders.js';
 
 const zn = i => S.M.z[i].n;
 const W = () => S.MD.words;
@@ -618,6 +619,7 @@ export const groupWin = z => { if (S.G.rank >= 1 && Math.random() < .7) gsay('wi
 // ---------------- ganchos ----------------
 export function dayStart() {
   const g = S.G;
+  orderStart();
   if (g.rank >= 1 && Math.random() < .6) gsay(g.jail && g.jail.until >= g.day ? 'jail' : 'idle');
   cityEvent();
   objTick(false);
@@ -638,6 +640,7 @@ export function dayEnd(rep) {
   }
   relationTick(rep);
   objTick(true, rep);
+  orderEnd(rep);
   groupTick(rep);
 }
 // usado nos testes automáticos
