@@ -198,6 +198,62 @@ function chainStories() {
           { l: 'Dar a entrevista', fx(g) { g.heat = Math.max(0, g.heat - 25); addXP(120); allLoy(6); cset('pcida3', 'tv'); return { say: 'Virou exemplo no jornal da noite.', end: 1 }; } },
         ] },
     }),
+    // ===== CARTEL: Halcón =====
+    CH('halc1', ['cartel'], 'olheiro', 45, null, 0, {
+      a: { from: () => 'olheiro', text: d => `Patrón, tem um gringo hospedado em ${d.z != null ? zn(d.z) : 'uma das nossas vilas'} fazendo pergunta demais. Diz que é turista.`,
+        opts: () => [
+          { l: 'Segue ele e me conta', fx: () => ({ say: 'Deixa comigo.', next: 'b', delay: 1 }) },
+          { l: 'Pega o gringo', fx(g) { addKarma(-8); g.heat = Math.min(100, g.heat + 15); addXP(40); cset('halc1', 'pegou'); return { say: 'Pegamos. Era da DEA. Agora a DEA vai querer saber onde ele foi parar.', end: 1 }; } },
+          { l: 'Deixa ele', fx() { cset('halc1', 'nada'); return { say: 'Tá bom, patrão.', end: 1 }; } },
+        ] },
+      b: { from: () => 'olheiro', text: () => 'É agente da DEA, patrão. Anota placa de caminhão e foto de pista.',
+        opts: () => [
+          { l: `Comprar o gringo (${fmt(3000)})`, fx(g) { if (!pay(g, 3000)) return { say: 'Sem dinheiro, ele segue trabalhando contra nós.', end: 1 }; addKarma(-4); addBuf({ raid: .5 }, 14, 'Agente da DEA comprado'); cset('halc1', 'comprou'); return { say: 'Agora ele trabalha pra gente. Duas semanas de sossego.', end: 1 }; } },
+          { l: 'Mandar ele embora da região', fx(g) { g.heat = Math.min(100, g.heat + 5); addRel('olheiro', 6); cset('halc1', 'expulsou'); return { say: 'Foi embora assustado. Mas vai voltar com mais gente.', end: 1 }; } },
+        ] },
+    }),
+    CH('halc2', ['cartel'], 'olheiro', 55, 'halc1', 0, {
+      a: { from: () => 'olheiro', text: () => `Patrão, minha irmã passou numa faculdade nos Estados Unidos. Falta ${fmt(2000)} pro visto e a passagem. Eu pago trabalhando.`,
+        opts: () => [
+          { l: `Dar o dinheiro (${fmt(2000)})`, fx(g) { if (!pay(g, 2000)) return { say: 'Tudo bem, patrão. Quando der.', end: 1 }; addKarma(8); addRel('olheiro', 15); cset('halc2', 'ajudou'); return { say: 'Deus te pague, patrão. Ela embarca semana que vem.', end: 1 }; } },
+          { l: 'Lá não é lugar pra ela', fx() { addRel('olheiro', -10); cset('halc2', 'nao'); return { say: '...entendido.', end: 1 }; } },
+        ] },
+    }),
+    CH('halc3', ['cartel'], 'olheiro', 0, 'halc2', 0, {
+      a: { from: () => 'olheiro', text: d => cget('halc2') === 'ajudou' ? 'Patrão, minha irmã está em Miami. Ela conheceu um comprador grande e ele quer fazer negócio direto com você.' : `Patrão... o Halcón sumiu. Dizem que foi trabalhar para ${R1(d)}.`,
+        opts: d => cget('halc2') === 'ajudou' ? [
+          { l: 'Fechar com o comprador de Miami', fx(g) { g.rent = (g.rent || 0) + 300; addXP(120); cset('halc3', 'miami'); return { say: `Negócio fechado: ${fmt(300)} por dia entrando direto de Miami.`, end: 1 }; } },
+        ] : [
+          { l: 'Mudar todas as rotas', fx(g) { g.money = Math.max(0, g.money - 1500); cset('halc3', 'rotas'); return { say: `Rotas trocadas. Custou ${fmt(1500)}, mas ele não vai entregar nada que valha.`, end: 1 }; } },
+          { l: 'Deixar como está', fx(g) { if (d.r != null) g.f[d.r].money += 3000; g.heat = Math.min(100, g.heat + 10); cset('halc3', 'traido'); return { say: 'Ele contou tudo. Os rivais e a DEA sabem das nossas rotas.', end: 1 }; } },
+        ] },
+    }),
+    // ===== CARTEL: Doña Rosa =====
+    CH('rosa1', ['cartel'], 'morador', 45, null, 3, {
+      a: { from: () => 'morador', text: d => `O rio subiu e a vila de ${d.z != null ? zn(d.z) : 'baixo'} está alagada. As famílias perderam tudo.`,
+        opts: d => [
+          { l: `Mandar dinheiro para as famílias (${fmt(2500)})`, fx(g) { if (!pay(g, 2500)) return { say: 'Sem ajuda, o povo vai lembrar.', end: 1 }; addKarma(12); if (d.z != null) g.d[d.z].l = clamp(g.d[d.z].l + 8, 0, 100); cset('rosa1', 'pagou'); return { say: 'Que Deus abençoe o senhor. Ninguém do governo apareceu, só vocês.', end: 1 }; } },
+          { l: 'Mandar os barcos do cartel resgatar o povo', fx() { addKarma(6); addRel('morador', 10); cset('rosa1', 'barcos'); return { say: 'Os barcos tiraram todo mundo. O povo viu quem ajudou.', end: 1 }; } },
+          { l: 'Não é comigo', fx() { addKarma(-5); addRel('morador', -10); cset('rosa1', 'nao'); return { say: 'Entendi, patrão.', end: 1 }; } },
+        ] },
+    }),
+    CH('rosa2', ['cartel'], 'morador', 50, 'rosa1', 3, {
+      a: { from: () => 'morador', text: d => `O exército quer instalar uma base em ${d.z != null ? zn(d.z) : 'nossa vila'}. O povo tem medo de ficar no meio do fogo cruzado.`,
+        opts: () => [
+          { l: `Pagar o general para mudar de lugar (${fmt(4000)})`, fx(g) { if (!pay(g, 4000)) return { say: 'Sem dinheiro, a base vem.', end: 1 }; addBuf({ raid: .6 }, 10, 'General pago'); cset('rosa2', 'general'); return { say: 'A base foi para outro lugar. O povo respirou.', end: 1 }; } },
+          { l: 'Avisar o povo para resistir', fx(g) { addKarma(5); allLoy(5); g.heat = Math.min(100, g.heat + 10); cset('rosa2', 'resistiu'); return { say: 'O povo bloqueou a estrada. O exército recuou, por enquanto.', end: 1 }; } },
+          { l: 'Deixar a base vir', fx(g) { g.heat = Math.max(0, g.heat - 15); allLoy(-5); cset('rosa2', 'base'); return { say: 'A base veio. O povo ficou com medo.', end: 1 }; } },
+        ] },
+    }),
+    CH('rosa3', ['cartel'], 'morador', 40, 'rosa2', 3, {
+      a: { from: () => 'morador', text: () => kBad() ? 'O povo te teme, patrão. Os jovens estão fugindo para as cidades e as vilas estão ficando vazias.' : 'O povoado fez uma procissão por você. Dizem que você é o Patrón del pueblo.',
+        opts: () => kBad() ? [
+          { l: `Investir nas vilas (${fmt(3000)})`, fx(g) { if (!pay(g, 3000)) return { say: 'Promessa sem dinheiro não segura ninguém.', end: 1 }; addKarma(20); allLoy(6); cset('rosa3', 'mudou'); return { say: 'É um começo, patrão.', end: 1 }; } },
+          { l: 'Que vão embora', fx() { addKarma(-5); allLoy(-6); cset('rosa3', 'medo'); return { say: 'Que Deus tenha piedade.', end: 1 }; } },
+        ] : [
+          { l: 'Agradecer ao povo', fx(g) { allLoy(8); g.heat = Math.max(0, g.heat - 10); addXP(120); cset('rosa3', 'procissao'); return { say: 'O povo vai te proteger, patrão.', end: 1 }; } },
+        ] },
+    }),
     // ===== MÁFIA: Peppino =====
     CH('pepp1', ['mafia'], 'olheiro', 45, null, 0, {
       a: { from: () => 'olheiro', text: () => 'Don, um jornalista do Giornale está fotografando o restaurante todo dia.',
@@ -669,6 +725,36 @@ const STORIES = [
           { l: `Pagar o assessor (${fmt(5000)})`, fx(g) { if (g.money < 5000) return { say: 'Sem os 5 mil a obra vai pra outro.', end: 1 }; g.money -= 5000; if (Math.random() < .7) { g.rent = (g.rent || 0) + 450; addXP(120); log(`A obra pública rende ${fmt(450)} por dia.`, 'good'); return { say: `A obra é nossa. ${fmt(450)} por dia entrando, limpinho.`, end: 1 }; } g.heat = Math.min(100, g.heat + 15); return { say: 'A Guardia di Finanza estava de olho no assessor. Dinheiro perdido e pressão subindo.', end: 1 }; } },
           { l: 'Entrar na licitação sem pagar ninguém', fx(g) { if (Math.random() < .25) { g.rent = (g.rent || 0) + 300; addXP(80); return { say: `Ganhamos no preço. ${fmt(300)} por dia.`, end: 1 }; } return { say: 'Perdemos para uma empresa com amigos melhores.', end: 1 }; } },
           { l: 'Passar', fx: () => ({ say: 'Outro pega.', end: 1 }) },
+        ],
+      },
+    },
+  },
+  {
+    id: 'avioneta', min: 1, weight: 3, modes: ['cartel'],
+    init(d) { const m = owned(0); if (!m.length) return false; d.z = pick(m); return true; },
+    steps: {
+      a: {
+        from: () => can('crew') ? 'braco' : 'chefe',
+        text: d => `Uma avioneta nossa caiu na selva perto de ${zn(d.z)}. A carga está inteira, mas o exército já ouviu o barulho.`,
+        opts: d => [
+          { l: 'Mandar os muchachos buscar', fx(g) { if (Math.random() < .6) { g.money += 4000; g.extra = (g.extra || 0) + 4000; addXP(60); return { say: `Chegaram antes do exército. ${fmt(4000)} recuperados.`, end: 1 }; } const b = g.d[g.base], l = Math.min(Math.max(0, b.t - 3), 4); b.t -= l; g.heat = Math.min(100, g.heat + 20); return { say: `O exército chegou primeiro. Perdemos ${l} homens e a DEA subiu em cima.`, end: 1 }; } },
+          { l: 'Deixar a carga para trás', fx(g) { g.heat = Math.min(100, g.heat + 5); return { say: 'Prejuízo. Mas ninguém foi preso.', end: 1 }; } },
+        ],
+        timeout(g) { g.heat = Math.min(100, g.heat + 8); },
+      },
+    },
+  },
+  {
+    id: 'garimpeiros', min: 2, weight: 3, modes: ['cartel'],
+    init(d) { const m = owned(0); if (!m.length) return false; d.z = pick(m); return true; },
+    steps: {
+      a: {
+        from: () => can('crew') ? 'braco' : 'chefe',
+        text: d => `Garimpeiros de fora invadiram ${zn(d.z)} e estão tirando ouro da nossa área sem pagar nada.`,
+        opts: d => [
+          { l: 'Cobrar uma parte de tudo', fx(g) { g.rent = (g.rent || 0) + 150; addKarma(-3); return { say: `Agora pagam. ${fmt(150)} por dia.`, end: 1 }; } },
+          { l: 'Expulsar e proteger o rio', fx(g) { addKarma(4); g.d[d.z].l = clamp(g.d[d.z].l + 6, 0, 100); g.d[d.z].t = Math.max(1, g.d[d.z].t - 2); return { say: 'Foram embora. A vila agradeceu o rio limpo.', end: 1 }; } },
+          { l: 'Deixa eles', fx(g) { g.d[d.z].l = clamp(g.d[d.z].l - 3, 0, 100); return { say: 'O povo não gostou.', end: 1 }; } },
         ],
       },
     },
