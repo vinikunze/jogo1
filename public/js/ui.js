@@ -9,11 +9,13 @@ import * as MAP from './map.js';
 import * as E from './engine.js';
 import * as ST from './stories.js';
 import * as OR from './orders.js';
+import { face } from './faces.js';
+import { MAST } from './news.js';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const mob = () => innerWidth <= 760;
-S.hooks = { dayStart: ST.dayStart, dayEnd: ST.dayEnd, storyAnswer: ST.storyAnswer, win: ST.groupWin, orderAnswer: OR.orderAnswer };
+S.hooks = { dayStart: ST.dayStart, dayEnd: ST.dayEnd, storyAnswer: ST.storyAnswer, win: i => { ST.groupWin(i); setTimeout(() => sfx.conq(), 350); }, orderAnswer: OR.orderAnswer };
 let tab = 'z', phone = { open: false, app: 'home', chat: null }, setup = { rank: 0, nick: '' }, batching = false, newMsgs = 0;
 
 // ---------- som ----------
@@ -25,7 +27,15 @@ const sfx = {
   click: () => tone('triangle', 520, .06, .05), cash: () => { tone('square', 988, .08, .05); setTimeout(() => tone('square', 1319, .18, .05), 80); },
   shots: () => { for (let k = 0; k < 5; k++) noise(.12, .22, k * .09 + Math.random() * .04); }, win: () => { tone('triangle', 523, .15, .1); setTimeout(() => tone('triangle', 784, .3, .1), 130); },
   lose: () => tone('sawtooth', 300, .4, .07, 120), siren: () => { tone('sine', 700, .5, .06, 1100); setTimeout(() => tone('sine', 1100, .5, .06, 700), 480); },
-  ping: () => { tone('sine', 880, .09, .08); setTimeout(() => tone('sine', 1320, .14, .07), 90); },
+  ping: () => { const m = S.G && S.G.mode; if (m === 'policia') { tone('square', 1250, .05, .04); setTimeout(() => tone('square', 1250, .05, .04), 110); return; } if (m === 'mafia') { tone('sine', 660, .25, .07); setTimeout(() => tone('sine', 990, .4, .05), 140); return; } tone('sine', 880, .09, .08); setTimeout(() => tone('sine', 1320, .14, .07), 90); },
+  conq: () => {
+    const m = S.G && S.G.mode, at = (ms, f) => setTimeout(f, ms);
+    if (m === 'faccao') { for (let k = 0; k < 4; k++) { at(k * 260, () => tone('sine', 500, .22, .04, 1800)); at(k * 260 + 230, () => noise(.18, .25, 0)); } return; }
+    if (m === 'policia') { tone('square', 1100, .06, .04); at(90, () => tone('square', 1500, .06, .04)); at(260, () => sfx.siren()); return; }
+    if (m === 'milicia') { noise(.25, .08, 0); at(260, () => tone('square', 900, .07, .05)); at(380, () => tone('square', 1200, .1, .05)); return; }
+    if (m === 'mafia') { [440, 523, 659, 880, 659, 880].forEach((f, k) => { at(k * 110, () => tone('triangle', f, .12, .07)); at(k * 110 + 45, () => tone('triangle', f, .1, .04)); }); return; }
+    sfx.win();
+  },
 };
 
 // ---------- ícones ----------
@@ -50,6 +60,8 @@ const I = {
 };
 const lockBox = (key, what) => `<div class="lock">${I.lock}<span>${what || UNLOCK[unlockRank(key)].label}: libera no cargo <b>${esc(S.MD.ranks[unlockRank(key)])}</b>.</span></div>`;
 const avColor = id => ['#00a884', '#d6a645', '#7f66ff', '#e5484d', '#3b82f6', '#e07b39', '#1fa38a', '#c2185b'][[...id].reduce((a, c) => a + c.charCodeAt(0), 0) % 8];
+const avOf = (id, size) => { const k = contactById(id); return face({ id, name: k.name, mode: S.G.mode, group: k.group, rival: k.rival, size }); };
+const crewFace = n => face({ id: 'crew' + n, name: n, mode: S.G.mode, crew: 1, size: 22 });
 const initials = n => n.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase();
 
 // ---------- feedback ----------
@@ -318,29 +330,29 @@ function renderPhone() {
     const app = (k, ic, bg, label, locked, badge) => `<button class="app ${locked ? 'locked' : ''}" data-app="${k}"><span class="ic" style="background:${bg}">${ic}</span>${label}${badge ? `<span class="badge">${badge}</span>` : ''}</button>`;
     h = `<div class="home"><div class="clock">21:40</div><div class="date">Dia ${g.day} · ${esc(g.nick)}, ${esc(rankName())}</div><div class="apps">
       ${app('zap', I.zap, '#25d366', 'WhatsApp', false, ur)}${app('con', I.con, '#3b82f6', 'Contatos')}${app('mkt', I.mkt, '#d6a645', 'Mercado')}${app('fin', I.fin, '#0f9d58', 'Finanças')}
-      ${app('car', I.car, '#a855f7', 'Carreira', false, sp > 0 ? sp : 0)}${app('nws', I.nws, '#e5484d', 'Notícias')}${app('map', I.map, '#1fa38a', 'Mapa')}</div>
+      ${app('car', I.car, '#a855f7', 'Carreira', false, sp > 0 ? sp : 0)}${app('nws', I.nws, '#e5484d', MAST[g.mode].app)}${app('map', I.map, '#1fa38a', 'Mapa')}</div>
       <div class="dock"><button data-g="phone" aria-label="Fechar celular"></button></div></div>`;
   } else if (phone.app === 'zap') {
     const th = threads();
     h = `<div class="ahead"><button class="back" data-app="home" aria-label="Voltar">${I.back}</button><div><b>WhatsApp</b><small>${ur ? ur + ' não lidas' : 'Conversas'}</small></div></div>
-      <div class="abody clist">${th.length ? th.map(([c, ms]) => { const k = contactById(c), last = ms[ms.length - 1], n = ms.filter(m => !m.me && !m.read).length; return `<button data-chat="${esc(c)}"><span class="av" style="background:${avColor(c)}">${esc(initials(k.name))}</span><span class="mid"><b>${esc(k.name)}</b><span>${last.me ? 'Você: ' : ''}${esc(last.t)}</span></span><span class="rt">Dia ${last.d}${n ? `<i>${n}</i>` : ''}</span></button>`; }).join('') : '<p class="app-pad">Nenhuma conversa ainda.</p>'}</div>`;
+      <div class="abody clist">${th.length ? th.map(([c, ms]) => { const k = contactById(c), last = ms[ms.length - 1], n = ms.filter(m => !m.me && !m.read).length; return `<button data-chat="${esc(c)}"><span class="av">${avOf(c)}</span><span class="mid"><b>${esc(k.name)}</b><span>${last.me ? 'Você: ' : ''}${esc(last.t)}</span></span><span class="rt">Dia ${last.d}${n ? `<i>${n}</i>` : ''}</span></button>`; }).join('') : '<p class="app-pad">Nenhuma conversa ainda.</p>'}</div>`;
   } else if (phone.app === 'chat') {
     const c = phone.chat, k = contactById(c), ms = g.msgs.filter(m => m.c === c); ms.forEach(m => { if (!m.me) m.read = 1; });
     let lastDay = 0, body = '';
     for (const m of ms) {
       if (m.d !== lastDay) { body += `<span class="day">Dia ${m.d}</span>`; lastDay = m.d; }
-      body += `<div class="bub ${m.me ? 'out' : 'in'}">${m.who ? `<b class="who" style="color:${avColor(m.who)}">${esc(m.who)}</b>` : ''}${esc(m.t)}<time>${m.me ? '21:4' + (m.id % 10) : '21:3' + (m.id % 10)}</time></div>`;
+      body += `<div class="bub ${m.me ? 'out' : 'in'}">${m.who ? `<b class="who" style="color:${avColor(m.who)}">${crewFace(m.who)}${esc(m.who)}</b>` : ''}${esc(m.t)}<time>${m.me ? '21:4' + (m.id % 10) : '21:3' + (m.id % 10)}</time></div>`;
       if (m.st === 'open') body += `<div class="opts">${m.opts.map((o, oi) => `<button data-a="ans" data-m="${m.id}" data-n="${oi}">${esc(o.l)}</button>`).join('')}</div>`;
       else if (m.st === 'expired') body += `<span class="exp">Sem resposta. A oportunidade passou.</span>`;
     }
     const riv = k.rival != null ? g.f[k.rival] : null;
     if (riv && riv.alive && can('boss')) body += `<div class="opts">${truceWith(k.rival + 1) ? `<span class="exp">Trégua até o dia ${riv.truce}.</span>` : `<button data-a="truce" data-n="${k.rival}" ${g.acts && g.money >= 2500 ? '' : 'disabled'}>Propor trégua de 7 dias (${fmt(2500)} · 1 ação)</button>`}</div>`;
-    h = `<div class="ahead"><button class="back" data-app="zap" aria-label="Voltar">${I.back}</button><span class="av" style="background:${avColor(c)}">${esc(initials(k.name))}</span><div><b>${esc(k.name)}</b><small>${esc(k.role || 'online')}</small>${k.rival == null && S.MD.contacts.some(x => x.id === c) ? '<br>' + relBar(c) : ''}</div></div>
+    h = `<div class="ahead"><button class="back" data-app="zap" aria-label="Voltar">${I.back}</button><span class="av">${avOf(c)}</span><div><b>${esc(k.name)}</b><small>${esc(k.role || 'online')}</small>${k.rival == null && S.MD.contacts.some(x => x.id === c) ? '<br>' + relBar(c) : ''}</div></div>
       <div class="abody chat" id="chatBody">${body || '<span class="day">Sem mensagens</span>'}</div>`;
   } else if (phone.app === 'con') {
     const av = contacts(), locked = S.MD.contacts.filter(c => g.rank < c.min);
     h = `<div class="ahead"><button class="back" data-app="home" aria-label="Voltar">${I.back}</button><div><b>Contatos</b><small>${av.length} liberados</small></div></div>
-      <div class="abody clist">${av.map(c => `<button data-chat="${esc(c.id)}"><span class="av" style="background:${avColor(c.id)}">${esc(initials(c.name))}</span><span class="mid"><b>${esc(c.name)}</b><span>${esc(c.role)}${c.rival != null ? ' · ' + esc(S.G.f[c.rival].pers || '') : ''}</span>${c.rival == null ? relBar(c.id) : ''}</span></button>`).join('')}
+      <div class="abody clist">${av.map(c => `<button data-chat="${esc(c.id)}"><span class="av">${avOf(c.id)}</span><span class="mid"><b>${esc(c.name)}</b><span>${esc(c.role)}${c.rival != null ? ' · ' + esc(S.G.f[c.rival].pers || '') : ''}</span>${c.rival == null ? relBar(c.id) : ''}</span></button>`).join('')}
       ${locked.map(c => `<button disabled><span class="av" style="background:#333">${I.lock}</span><span class="mid"><b>${esc(c.role)}</b><span>Libera no cargo ${esc(S.MD.ranks[c.min])}</span></span></button>`).join('')}
       ${g.rank < 5 ? `<button disabled><span class="av" style="background:#333">${I.lock}</span><span class="mid"><b>Chefes rivais</b><span>Libera no cargo ${esc(S.MD.ranks[5])}</span></span></button>` : ''}</div>`;
   } else if (phone.app === 'mkt') {
@@ -380,8 +392,11 @@ function renderPhone() {
       <h3>Habilidades · ${skillPoints()} ponto${skillPoints() === 1 ? '' : 's'}</h3><p class="note">Fama: <b>${esc(E.charOf()[0])}</b></p><button class="gold btn" data-g="tree" style="width:100%;margin-bottom:8px">Abrir árvore de habilidades</button>
       <h3>Conquistas · ${Object.keys(g.ach).length}/${ACH.length}</h3><div class="achs">${ACH.map(a => `<div class="ach ${g.ach[a.id] ? 'on' : ''}"><b>${esc(a.name)}</b>${esc(a.desc)}</div>`).join('')}</div></div>`;
   } else if (phone.app === 'nws') {
-    h = `<div class="ahead"><button class="back" data-app="home" aria-label="Voltar">${I.back}</button><div><b>Notícias</b><small>Plantão da cidade</small></div></div>
-      <div class="abody app-pad"><ul class="news">${g.log.slice(0, 50).map(l => `<li class="${l.c}"><b>Dia ${l.d}</b> · ${esc(l.t)}</li>`).join('')}</ul></div>`;
+    const M = MAST[g.mode], N = g.news || [], days = [...new Set(N.map(n => n.d))];
+    h = `<div class="ahead"><button class="back" data-app="home" aria-label="Voltar">${I.back}</button><div><b>${esc(M.app)}</b><small>${esc(M.sub)}</small></div></div>
+      <div class="abody app-pad news2 ${M.kind}"><div class="mast"><b>${esc(M.name)}</b><small>${M.kind === 'radio' ? '<i class="live"></i> ao vivo' : M.kind === 'copom' ? 'canal 1 · aberto' : 'edizione del giorno'}</small></div>
+      ${days.length ? days.slice(0, 12).map(d => `<div class="nday"><span>${M.kind === 'paper' ? 'Giorno' : 'Dia'} ${d}</span>${N.filter(n => n.d === d).map(n => `<p class="${n.k}">${M.kind === 'copom' ? '<i>QTH</i> ' : ''}${esc(n.t)}</p>`).join('')}</div>`).join('') : '<p class="note">As notícias aparecem ao fim de cada dia.</p>'}
+      <h3 style="margin-top:14px">Registro da sua história</h3><ul class="news">${g.log.slice(0, 30).map(l => `<li class="${l.c}"><b>Dia ${l.d}</b> · ${esc(l.t)}</li>`).join('')}</ul></div>`;
   }
   scr.innerHTML = sbar + h;
   const cb = $('#chatBody'); if (cb) cb.scrollTop = cb.scrollHeight;

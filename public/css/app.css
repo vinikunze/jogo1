@@ -333,3 +333,21 @@ button.link{background:none;border:0;color:var(--mu);font:inherit;font-size:12px
 .ord>small{display:block;color:var(--mu);font-size:13px;margin-top:3px;line-height:1.35}
 .ord .row2{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
 .ord .row2 .btn{width:auto;flex:1 1 auto;margin-top:0}
+.av{background:transparent;overflow:hidden}
+.av svg.face{display:block;width:100%;height:100%}
+.bub b.who{display:flex;align-items:center;gap:6px}
+.bub b.who svg.face{flex:none;border-radius:50%}
+/* rádio / jornal */
+.news2 .mast{text-align:center;padding:10px 8px 12px;margin-bottom:10px;border-bottom:1px solid var(--ln)}
+.news2 .mast b{display:block;font:700 22px/1.1 'Bebas Neue',Barlow,sans-serif;letter-spacing:.04em;color:var(--g1)}
+.news2 .mast small{color:var(--mu);font-size:12px}
+.news2.paper .mast b{font:700 24px/1.1 Georgia,'Times New Roman',serif;color:#efe6cf;letter-spacing:0}
+.news2.paper .nday p{font-family:Georgia,'Times New Roman',serif}
+.news2.copom .nday p{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px}
+.news2.copom .nday p i{color:#7fb2ff;font-style:normal}
+.live{display:inline-block;width:8px;height:8px;border-radius:50%;background:#e5484d;margin-right:4px;animation:finpulse 1.2s infinite;box-shadow:0 0 6px #e5484d}
+.nday{margin-bottom:12px}
+.nday>span{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--mu)}
+.nday p{margin:6px 0 0;padding:8px 10px;border-radius:10px;background:rgba(255,255,255,.04);font-size:13.5px;line-height:1.4;border-left:3px solid rgba(255,255,255,.15)}
+.nday p.good{border-left-color:var(--ok)}.nday p.bad{border-left-color:var(--bad)}.nday p.ev{border-left-color:var(--g1);color:var(--g1)}
+@media (min-width:761px){.hud{flex-wrap:nowrap}.brand{flex:none}.stats{min-width:0;flex:0 1 auto;overflow-x:auto;scrollbar-width:none}.stats::-webkit-scrollbar{display:none}}

@@ -4,6 +4,7 @@ import {
   S, R, RI, pick, sum, clamp, fmt, owned, can, msg, log, addXP, addRel, rel, rankName, oname, intelAt, pTroops, emit, addBuf, arrest, underdog, sk, addKarma, kGood, kBad,
 } from './engine.js';
 import { orderStart, orderEnd } from './orders.js';
+import { newsDay } from './news.js';
 
 const zn = i => S.M.z[i].n;
 const W = () => S.MD.words;
@@ -642,6 +643,7 @@ export function dayEnd(rep) {
   objTick(true, rep);
   orderEnd(rep);
   groupTick(rep);
+  newsDay(rep);
 }
 // usado nos testes automáticos
 export function forceStory(id) { const s = STORIES.find(x => x.id === id), d = {}; if (!s || !s.init(d)) return false; S.G.story = { id, step: 'a', due: S.G.day, data: d, mid: null }; sendStep(); return true; }
