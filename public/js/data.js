@@ -26,7 +26,7 @@ export const RIVAL_STR = [
 
 export const XP = [0, 150, 450, 1000, 1800, 3000];
 // 12 cargos: os pares (0, 2, 4...) liberam recursos novos; os ímpares são promoções intermediárias
-export const XP2 = [0, 80, 150, 300, 450, 700, 1000, 1400, 1800, 2400, 3000, 4200];
+export const XP2 = [0, 80, 150, 300, 450, 700, 1000, 1500, 2200, 3400, 5000, 8000];
 
 export const UNLOCK = [
   { key: 'zap', label: 'Celular e missões do chefe' },

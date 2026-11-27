@@ -243,7 +243,7 @@ export async function resume(mode) {
 }
 export function startAt(i, rank, nick) {
   const g = S.G, M_ = S.M;
-  g.phase = 'play'; g.base = i; g.rank = rank; g.ri = rank * 2; g.xp = XP[rank]; g.nick = (nick || '').trim().slice(0, 18) || 'Novato';
+  g.phase = 'play'; g.base = i; g.rank = rank; g.ri = rank * 2; g.xp = XP2[rank * 2]; g.nick = (nick || '').trim().slice(0, 18) || 'Novato';
   g.d[i] = { o: 0, t: 16, b: [], l: 70, tx: 1 };
   M_.adj[i].filter(j => g.d[j].o === -1 && M_.type[j] !== 'capitale').slice(0, 1).forEach(j => { g.d[j] = { o: 0, t: 9, b: [], l: 50, tx: 1 }; });
   for (const gd of S.MD.goods) { const q = Math.round(demandFor(gd.id, 2, false) * 2) || 20; g.stock[gd.id] = q; g.cost[gd.id] = gd.buy || 0; }
@@ -738,7 +738,7 @@ export function endDay() {
   g.money += inc - up;
   const luc = sv.ven + (g.extra || 0) - sv.cmv - (g.xcost || 0) + inc - up;
   const H = { d: g.day, ven: sv.ven + (g.extra || 0), cmv: sv.cmv + (g.xcost || 0), arr: inc, sal: up, luc, lost: Math.round(sv.lost), buys: g.buys || 0 };
-  g.extra = 0; g.xcost = 0; g.buys = 0; tut('end'); if (H.ven > 0) addXP(Math.min(40, Math.round(H.ven / 200)));
+  g.extra = 0; g.xcost = 0; g.buys = 0; tut('end'); if (H.ven > 0) addXP(Math.min(20, Math.round(H.ven / 300)));
   rep.push(['good', `Vendas ${S.MD.shopIn}`, '+' + fmt(H.ven)], ['bad', 'Custo da mercadoria vendida', '-' + fmt(H.cmv)], ['good', S.MD.budget ? 'Orçamento e arrecadação' : 'Arrecadação das zonas', '+' + fmt(inc)], ['bad', 'Salários', '-' + fmt(up)]);
   if (H.buys > 0) rep.push(['info', 'Compras para o estoque (sai do caixa, não é prejuízo)', '-' + fmt(H.buys)]);
   if (H.lost > 200) rep.push(['bad', 'Vendas perdidas por falta de mercadoria', fmt(H.lost)]);

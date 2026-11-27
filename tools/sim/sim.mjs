@@ -37,7 +37,7 @@ for (let d = 0; d < +days && !G.over; d++) {
   if (E.can('market')) for (const gd of S.MD.goods) A.price(gd.id, G.stock[gd.id] < E.demandFor(gd.id, 2) ? 3 : 2);
   if (E.can('crew')) { const border = E.owned(0).filter(i => M.adj[i].some(j => G.d[j].o !== 0)); const thr = i => M.adj[i].filter(j => G.d[j].o > 0).reduce((a, j) => a + G.d[j].t, 0); border.sort((a, b) => thr(b) - thr(a)); for (const i of border) { const need = Math.max(0, Math.ceil(thr(i) * .7) - G.d[i].t); if (need > 0 && G.reserve > 0) { S.sel = i; A.dep(Math.min(need, G.reserve)); } } }
   S.sel = null; E.endDay ? E.endDay() : A.endDay();
-  if (G.day % 5 === 0 || G.over) traj.push(`${G.day}:${E.owned(0).length}`);
+  if (G.day % 5 === 0 || G.over) traj.push(`${G.day}:${E.owned(0).length}:r${E.rankIdx()}`);
 }
 const riv = G.f.map((f, k) => E.owned(k + 1).length).join('/');
 console.log(mode, 'start', start, G.over || 'none', 'dia', G.day, 'zonas', E.owned(0).length + '/' + M.N, 'rivais', riv, 'caixa', Math.round(G.money), 'nv', E.lvlOf().n, 'cargo', E.rankName(), '|', traj.join(' '));
