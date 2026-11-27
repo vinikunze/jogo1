@@ -670,7 +670,7 @@ const STORIES = [
   },
   // ---------- fama: traição quando o chefe é temido, voluntários quando é querido ----------
   {
-    id: 'traidor', min: 2, weight: 5, need: () => kBad() && owned(0).length >= 3,
+    id: 'traidor', min: 2, weight: 5, need: () => kBad() && !sk('loyalc') && owned(0).length >= 3,
     init(d) { const g = S.G, z = owned(0).filter(i => i !== g.base).sort((a, b) => g.d[a].l - g.d[b].l)[0]; if (z == null) return false; const r = S.M.adj[z].map(j => g.d[j].o).filter(o => o > 0 && g.f[o - 1].alive); d.z = z; d.r = r.length ? r[0] - 1 : strongest(); return d.r != null; },
     steps: {
       a: {
@@ -795,6 +795,9 @@ function relationTick(rep) {
   const g = S.G;
   if (underdog() && !g.ud) { g.ud = 1; msg(boss(), T({ policia: 'Comandante, estamos cercados, mas o efetivo fechou com a gente. Enquanto a unidade for pequena, reforço sai mais barato e cada base resiste mais.', mafia: 'Siamo pochi, ma fedeli. Enquanto a família for pequena, todo mundo luta dobrado: recrutar sai mais barato e as nossas casas aguentam mais.', default: 'A gente tá encurralado, mas a rapaziada fechou com nós. Enquanto a gente for pequeno, recrutar sai mais barato e as nossas áreas aguentam mais.' })); log('Resistência: pequeno e encurralado, você recruta mais barato e defende melhor.', 'good'); }
   if (!underdog() && g.ud && owned(0).length / S.M.N >= .25) g.ud = 0;
+  if (sk('clean')) g.heat = Math.max(0, g.heat - 2);
+  if (sk('laundry')) { g.heat = Math.max(0, g.heat - 1); }
+  { const v = (sk('rentz') ? 40 : 0) * owned(0).length + (sk('laundry') ? 20 : 0) * owned(0).length; if (v) { g.money += v; g.extra = (g.extra || 0) + v; rep && rep.push(['good', 'Pequenos negócios e lavagem', '+' + fmt(v)]); } }
   if (sk('kick')) { const v = 70 * owned(0).length; g.money += v; g.extra = (g.extra || 0) + v; g.heat = Math.min(100, g.heat + 1); addKarma(-.5); rep && rep.push(['good', mode() === 'policia' ? 'Arrego das áreas' : 'Grilagem e esquemas', '+' + fmt(v)]); }
   if (g.rent) { g.money += g.rent; g.extra = (g.extra || 0) + g.rent; rep && rep.push(['good', mode() === 'policia' ? 'Convênios' : 'Negócios próprios', '+' + fmt(g.rent)]); }
   if (g.rank >= 2 && rel('braco') <= 20 && Math.random() < .2) { const v = Math.round(g.money * .12); g.money -= v; addRel('braco', 5); log(`Sumiram ${fmt(v)} do caixa. O braço direito anda estranho.`, 'bad'); rep && rep.push(['bad', 'Dinheiro sumido do caixa', '-' + fmt(v)]); }

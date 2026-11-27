@@ -355,3 +355,25 @@ button.link{background:none;border:0;color:var(--mu);font:inherit;font-size:12px
 @media (max-width:760px){.legend2{display:none}.legend2.open{display:flex}.views .leg-t{display:inline-block;min-width:34px}}
 @media (min-width:761px){body.ph-open #res{left:24px;transform:translate(0,-14px)}body.ph-open #res.on{transform:translate(0,0)}}
 @media (max-width:760px){body.ph-open #res{top:auto;bottom:24px;transform:translate(-50%,14px)}body.ph-open #res.on{transform:translate(-50%,0)}#dlg .row .gold,#dlg .row .ghost{font-size:15px;padding:10px 12px}}
+.lvl{display:inline-block;font-size:11px;font-weight:700;color:#1a1408;background:var(--g1);border-radius:6px;padding:0 5px;margin:0 2px}
+.rank.sub{opacity:.85}.rank.sub .n{transform:scale(.85)}
+/* árvore grande */
+#treeOv .tbox{max-width:1500px}
+.tgrid{grid-template-columns:repeat(5,minmax(230px,1fr));overflow-x:auto;padding-bottom:8px}
+.tcol h4{display:flex;justify-content:center;align-items:baseline;gap:8px}
+.tcol h4 small{font-size:12px;color:var(--mu);letter-spacing:0}
+.trow{position:relative}
+.tn{position:absolute;left:-8px;top:-6px;z-index:1;width:18px;height:18px;border-radius:50%;background:#26272e;border:1px solid var(--ln);font-size:10px;display:grid;place-items:center;color:var(--mu)}
+.tnode{padding:8px 9px}
+.tnode b{font-size:13.5px;line-height:1.2}
+.tnode small{font-size:11.5px}
+.tnode em{font-size:11px}
+.tnode.cap{border-width:2px;border-color:rgba(247,220,142,.35)}
+.tnode .tag.cap{color:var(--g1)}
+.trow.pair .tnode{min-width:0}
+.tpts{color:var(--g1);font-size:18px}
+.tabs-br{display:none;gap:6px;overflow-x:auto;margin-bottom:10px}
+.tabs-br button{flex:none;background:#17181d;border:1px solid var(--ln);color:var(--mu);border-radius:999px;padding:7px 12px;font:inherit;font-size:13px}
+.tabs-br button.on{color:#1a1408;background:var(--g1);border-color:var(--g1)}
+@media (max-width:820px){.tabs-br{display:flex}.tgrid{grid-template-columns:1fr}.tcol{display:none}.tcol.sel{display:flex}.trow.pair{flex-direction:row}.trow.pair .tnode{flex:1}}
+.career .ord .oh b{font-family:Barlow,system-ui,sans-serif;font-size:15px;font-weight:700;color:var(--ink);letter-spacing:0;text-transform:none}

@@ -1,5 +1,5 @@
 // Interface: menu, HUD, painel, celular (WhatsApp), diálogos e som.
-import { MODES, SOON, XP, UNLOCK, SKILLS, ACH, ZT, TIERS, FINALS, BCAT, SRV_P, BLV } from './data.js';
+import { MODES, SOON, XP, XP2, UNLOCK, SKILLS, ACH, ZT, TIERS, FINALS, BCAT, SRV_P, BLV } from './data.js';
 import {
   S, A, SAVE, store, fmt, sum, clamp, R, loadMap, mapsLoaded, newGame, resume, startAt, owned, colorOf, oname, sk, rankName, can, unlockRank,
   skillPoints, pTroops, pq, defVal, incOf, pIncome, upkeep, maxActs, reach, recruitCost, bribeCost, visible, est, estDef, odds, atkPow, bOf,
@@ -79,12 +79,14 @@ S.on = {
     newMsgs++;
     if (!batching && !m.quiet) { const c = contactById(m.c); result('Nova mensagem', `${c.name}: ${m.t.slice(0, 70)}${m.t.length > 70 ? '…' : ''}`, 'good'); sfx.ping(); }
   },
-  rankup: (r, u) => dialog(`<h2 style="color:var(--g1)">Promovido: ${esc(S.MD.ranks[r])}</h2><p class="note">Você subiu de cargo e ganhou 1 ponto de habilidade.</p><ul class="rep"><li><span>Liberado</span><b style="color:var(--ok)">${esc(u.label)}</b></li></ul><div class="row"><button class="ghost btn" data-g="close">Fechar</button><button class="gold btn" data-g="tree">Usar o ponto</button></div>`),
+  rankup: (r, u) => dialog(`<h2 style="color:var(--g1)">Promovido: ${esc(S.MD.ranks[r])}</h2><p class="note">Você subiu de cargo e liberou um recurso novo.</p><ul class="rep"><li><span>Liberado</span><b style="color:var(--ok)">${esc(u.label)}</b></li></ul><div class="row"><button class="ghost btn" data-g="close">Fechar</button><button class="gold btn" data-g="tree">Usar o ponto</button></div>`),
   ach: a => { result('Conquista', `${a.name}: ${a.desc}`, 'good'); sfx.win(); },
   jail: days => dialog(`<h2 style="color:var(--bad)">${S.MD.budget ? 'Afastado do comando' : 'Você foi preso'}</h2><p class="note">${S.MD.budget ? 'A corregedoria te afastou' : 'A operação te pegou'} por ${days} dias. Enquanto isso o seu braço direito comanda os ataques. Pelo celular você ainda fala com todo mundo, compra e vende. O advogado pode cortar o tempo pela metade.</p><button class="gold btn" data-g="close">Entendi</button>`),
   cityEvent: c => dialog(`<h2 style="color:var(--g1)">${esc(c.name)}</h2><p class="note">${esc(c.text)}</p><p class="note">Vale até o dia ${c.until}.</p><button class="gold btn" data-g="close">Entendi</button>`),
   final: f => { const F = FINALS[S.G.mode]; sfx.lose(); dialog(`<h2 style="color:var(--bad)">${esc(F.name)}</h2><p class="note">Os rivais se uniram contra ${esc(S.G.pname)}. Até o fim do dia ${f.until} eles vão atacar juntos e com mais força.</p><ul class="rep"><li><span>Para vencer</span><b>Segurar ${Math.round(E.FIN_HOLD * 100)}% e a sua base</b></li><li><span>Depois</span><b>Tomar a cidade inteira</b></li></ul><p class="note">Tem uma escolha esperando no celular.</p><div class="row"><button class="ghost btn" data-g="close">Fechar</button><button class="gold btn" data-g="zapnow">Abrir celular</button></div>`); },
   chapter: F => { sfx.win(); dialog(`<small class="note" style="letter-spacing:.14em;text-transform:uppercase">Capítulo vencido</small><h2 style="color:var(--g1)">${esc(F.name)}</h2><p class="note" style="color:var(--ink)">${esc(F.win)}</p><ul class="rep"><li><span>Prêmio</span><b style="color:var(--ok)">${fmt(5000)} e 300 de respeito</b></li><li><span>Rivais</span><b>perderam 20% da tropa</b></li><li><span>Próximo objetivo</span><b>100% de ${esc(S.MD.city)}</b></li></ul><button class="gold btn" data-g="close">Seguir</button>`); },
+  level: n => { result(`Nível ${n}`, '+1 ponto de habilidade. Abra a árvore em Comando.', 'good'); sfx.cash(); },
+  promo: (t, b) => { result(`Promovido: ${t}`, `Bônus de ${fmt(b)} no caixa.`, 'good'); sfx.win(); },
   over: k => {
     const win = k === 'win'; win ? sfx.win() : sfx.lose(); const F = FINALS[S.G.mode];
     dialog(`${win ? `<small class="note" style="letter-spacing:.14em;text-transform:uppercase">Final</small>` : ''}<h2 style="color:${win ? 'var(--g1)' : 'var(--bad)'}">${win ? esc(F.title) : 'Fim da linha'}</h2>${win ? `<p class="note" style="color:var(--ink)">${esc(F.epi)}</p>` : ''}<p class="note">${esc(S.G.why)}</p>
@@ -96,9 +98,9 @@ S.on = {
 // ---------- HUD ----------
 function renderHUD() {
   const g = S.G, ph = g.phase === 'setup', net = pIncome() - upkeep(), share = Math.round(owned(0).length / S.M.N * 100), hc = g.heat > 70 ? 'var(--bad)' : g.heat > 40 ? '#ffa36b' : 'var(--ok)';
-  const nx = g.rank < 5 ? XP[g.rank + 1] : null, pct = nx ? clamp((g.xp - XP[g.rank]) / (nx - XP[g.rank]) * 100, 0, 100) : 100, ur = unread();
+  const LV = E.lvlOf(), pct = Math.round(LV.cur / LV.need * 100), ur = unread();
   const hud = $('#hud'); hud.style.setProperty('--pc', S.MD.color);
-  hud.innerHTML = `<div class="brand">${I.emb}<div><b>${esc(g.pname)}</b><small>${ph ? `${S.MD.name} · ${esc(S.MD.city)}` : `${esc(g.nick)} · ${esc(rankName())} <span class="xp" title="${g.xp} de experiência"><i style="width:${pct}%"></i></span>`}</small></div></div>
+  hud.innerHTML = `<div class="brand">${I.emb}<div><b>${esc(g.pname)}</b><small>${ph ? `${S.MD.name} · ${esc(S.MD.city)}` : `${esc(g.nick)} · ${esc(rankName())} <span class="lvl">Nv ${LV.n}</span><span class="xp" title="Nível ${LV.n}: ${LV.cur} de ${LV.need} para o próximo nível (cada nível dá 1 ponto de habilidade)"><i style="width:${pct}%"></i></span>`}</small></div></div>
   <div class="stats">${ph ? '' : `<div class="stat"><small>Dia</small><strong>${g.day}</strong></div>
   <div class="stat" data-app-open="fin" style="cursor:pointer" title="Abrir finanças"><small>Caixa${g.lastPL ? ' · lucro ontem' : ' · previsto por dia'}</small><strong>${fmt(g.money)} ${g.lastPL ? `<em style="color:${g.lastPL.luc >= 0 ? 'var(--ok)' : 'var(--bad)'}">${g.lastPL.luc >= 0 ? '▲ +' : '▼ '}${fmt(g.lastPL.luc)}</em>` : `<em style="color:${net >= 0 ? 'var(--ok)' : 'var(--bad)'}">${net >= 0 ? '+' : ''}${fmt(net)}</em>`}</strong></div>
   <div class="stat"><small>Tropa · base</small><strong>${pTroops()} · ${g.reserve}</strong></div>
@@ -136,9 +138,10 @@ function targets() {
   return out.sort((a, b) => b[1] - a[1]).slice(0, 6);
 }
 function careerCard() {
-  const g = S.G, nx = g.rank < 5 ? XP[g.rank + 1] : null, pct = nx ? clamp((g.xp - XP[g.rank]) / (nx - XP[g.rank]) * 100, 0, 100) : 100, sp = skillPoints();
-  return `<div class="career"><small class="note">Seu cargo</small><br><b>${esc(rankName())}</b><div class="meter"><i style="width:${pct}%;background:var(--gold)"></i></div>
-    <p class="note" style="margin:6px 0 0">${nx ? `${g.xp} de ${nx} de respeito. Próximo: <strong style="color:var(--ink)">${esc(S.MD.ranks[g.rank + 1])}</strong>, libera ${esc(UNLOCK[g.rank + 1].label.toLowerCase())}.` : 'Você está no topo.'}${sp > 0 ? ` <strong style="color:var(--g1)">${sp} ponto${sp > 1 ? 's' : ''} de habilidade para usar.</strong>` : ''}</p></div>`;
+  const g = S.G, ri = E.rankIdx(), nx = ri < 11 ? XP2[ri + 1] : null, pct = nx ? clamp((g.xp - XP2[ri]) / (nx - XP2[ri]) * 100, 0, 100) : 100, sp = skillPoints(), T = S.MD.titles || S.MD.ranks, LV = E.lvlOf();
+  const nextUnlock = ri < 11 && (ri + 1) % 2 === 0 ? UNLOCK[(ri + 1) / 2] : null;
+  return `<div class="career"><small class="note">Seu cargo · nível ${LV.n}</small><br><b>${esc(rankName())}</b><div class="meter"><i style="width:${pct}%;background:var(--gold)"></i></div>
+    <p class="note" style="margin:6px 0 0">${nx ? `${g.xp} de ${nx} de respeito. Próximo: <strong style="color:var(--ink)">${esc(T[ri + 1])}</strong>${nextUnlock ? `, libera ${esc(nextUnlock.label.toLowerCase())}` : ', com bônus em dinheiro'}.` : 'Você está no topo.'}${sp > 0 ? ` <strong style="color:var(--g1)">${sp} ponto${sp > 1 ? 's' : ''} de habilidade para usar.</strong>` : ''}</p></div>`;
 }
 function baseInfo(i) {
   const [cl, cc] = comLabel(comLevel(i)), [rl, rc] = riskOf(i), near = rivalsNear(i);
@@ -175,16 +178,17 @@ function buildBox(i) {
   h += av.filter(b => b.cat === bcat).map(b => `<button class="ghost btn act" data-a="build" data-n="${b.id}" ${g.acts && g.money >= E.bCost(b) ? '' : 'disabled'}><span>${esc(b.name)}<small>${b.cat === 'srv' ? `${esc(b.desc)}. Aqui rende cerca de ${fmt(E.srvEst(i, b))}/dia` : esc(b.desc)}</small></span><em>${fmt(E.bCost(b))} · 1 ação</em></button>`).join('');
   return h;
 }
+let tbr = 0;
 function treeHTML() {
-  const g = S.G, T = E.tree(), pts = skillPoints(), [cl, ck] = E.charOf(), k = E.karma();
-  const lab = (n, st) => ({ have: 'Aprendida', can: `Aprender · ${n.cost} ponto${n.cost > 1 ? 's' : ''}`, pts: `Precisa de ${n.cost} ponto${n.cost > 1 ? 's' : ''}`, rank: `Libera no cargo ${S.MD.ranks[n.min]}`, pre: 'Aprenda a anterior', blocked: 'Caminho fechado' })[st];
-  const node = n => { const st = E.nodeState(n); return `<button class="tnode st-${st} ${n.al > 0 ? 'al-g' : n.al < 0 ? 'al-b' : ''}" data-learn="${n.id}" ${st === 'can' ? '' : 'disabled'}>${n.al ? `<i class="tag">${n.al > 0 ? 'bom caráter' : 'mau caráter'}</i>` : ''}<b>${esc(n.n)}</b><small>${esc(n.d)}</small><em>${lab(n, st)}</em></button>`; };
-  const cols = T.br.map((bn, b) => `<div class="tcol"><h4>${esc(bn)}</h4>${[1, 2, 3, 4].map(t => { const L = T.nodes.filter(n => n.b === b && n.t === t); return `<div class="trow ${L.length > 1 ? 'pair' : ''}">${L.map(node).join('<span class="or">ou</span>')}</div>`; }).join('<span class="lnk"></span>')}</div>`).join('');
+  const g = S.G, T = E.tree(), pts = skillPoints(), [cl, ck] = E.charOf(), k = E.karma(), LV = E.lvlOf(), have = Object.keys(g.tree || {}).length;
+  const lab = (n, st) => ({ have: 'Aprendida', can: `Aprender · ${n.cost} pt${n.cost > 1 ? 's' : ''}`, pts: `${n.cost} pt${n.cost > 1 ? 's' : ''}`, rank: `Cargo ${S.MD.ranks[n.min]}`, pre: 'Bloqueada', blocked: 'Caminho fechado' })[st];
+  const node = n => { const st = E.nodeState(n); return `<button class="tnode st-${st} ${n.al > 0 ? 'al-g' : n.al < 0 ? 'al-b' : ''} ${n.t === 8 ? 'cap' : ''}" data-learn="${n.id}" ${st === 'can' ? '' : 'disabled'}>${n.al ? `<i class="tag">${n.al > 0 ? 'bom caráter' : 'mau caráter'}</i>` : n.t === 8 ? '<i class="tag cap">final do ramo</i>' : ''}<b>${esc(n.n)}</b><small>${esc(n.d.replace('Capstone: ', ''))}</small><em>${lab(n, st)}</em></button>`; };
+  const cols = T.br.map((bn, b) => { const got = T.nodes.filter(n => n.b === b && (g.tree || {})[n.id]).length; return `<div class="tcol ${b === tbr ? 'sel' : ''}"><h4>${esc(bn)}<small>${got}/8</small></h4>${Array.from({ length: 8 }, (_, t) => { const L = T.nodes.filter(n => n.b === b && n.t === t + 1); return `<div class="trow ${L.length > 1 ? 'pair' : ''}"><span class="tn">${t + 1}</span>${L.map(node).join('<span class="or">ou</span>')}</div>`; }).join('<span class="lnk"></span>')}</div>`; }).join('');
   const leg = Object.keys(g.skills).length ? `<p class="note">Habilidades da versão anterior continuam valendo: ${Object.keys(g.skills).map(id => esc((SKILLS.find(s => s.id === id) || { name: id }).name)).join(', ')}.</p>` : '';
-  return `<div class="thead"><div><h2>Habilidades</h2><p class="note">${pts} ponto${pts === 1 ? '' : 's'} para gastar · ganha 1 por cargo e mais com respeito acima do topo</p></div><button class="ghost btn" data-g="treeclose">Fechar</button></div>
+  return `<div class="thead"><div><h2>Habilidades</h2><p class="note"><b class="tpts">${pts}</b> ponto${pts === 1 ? '' : 's'} para gastar · nível ${LV.n} (${LV.cur}/${LV.need}) · ${have} de ${T.nodes.length - 10} aprendidas</p><p class="note" style="margin:2px 0 0">Cada nível de experiência dá 1 ponto. Você ganha experiência conquistando, vendendo, entregando pedidos e cumprindo missões.</p></div><button class="ghost btn" data-g="treeclose">Fechar</button></div>
     <div class="karma"><span>${esc(T.bad)}</span><div class="kbar"><i style="left:${(k + 100) / 2}%"></i></div><span>${esc(T.good)}</span></div>
-    <p class="note" style="text-align:center;margin:6px 0 14px">Fama atual: <b class="k-${ck}">${esc(cl)}</b>. No nível 3 de cada ramo você escolhe um caminho, e ele fecha o outro.${ck === 'good' ? ' Bom caráter: menos operações e o povo mais leal.' : ck === 'bad' ? ' Mau caráter: ataque e arrecadação maiores, povo menos leal.' : ''}</p>
-    ${leg}<div class="tgrid">${cols}</div>`;
+    <p class="note" style="text-align:center;margin:6px 0 10px">Fama atual: <b class="k-${ck}">${esc(cl)}</b>. Nos níveis 3 e 6 de cada ramo você escolhe um caminho, e ele fecha o outro.${ck === 'good' ? ' Bom caráter: menos operações e o povo mais leal.' : ck === 'bad' ? ' Mau caráter: ataque e arrecadação maiores, povo menos leal.' : ''}</p>
+    ${leg}<div class="tabs-br">${T.br.map((bn, b) => `<button data-tbr="${b}" class="${b === tbr ? 'on' : ''}">${esc(bn)}</button>`).join('')}</div><div class="tgrid">${cols}</div>`;
 }
 function openTree() { let o = $('#treeOv'); if (!o) { o = document.createElement('div'); o.id = 'treeOv'; o.innerHTML = '<div class="tbox"></div>'; document.body.appendChild(o); } o.querySelector('.tbox').innerHTML = treeHTML(); o.classList.remove('hide'); sfx.click(); }
 function ordersCard(compact) {
@@ -199,6 +203,10 @@ function ordersCard(compact) {
       <small>${o.cash ? `Você tem ${fmt(have)}` : `No depósito: ${have} de ${o.q}${inc ? ` · ${inc} chegando amanhã` : ''}`}</small>
       <div class="row2"><button class="gold btn sm" data-a="deliver" data-n="${o.id}" ${ok ? '' : 'disabled'}>Entregar</button>${!o.cash && gd.buy && miss > 0 ? `<button class="ghost btn sm" data-a="rush" data-n="${o.id}" ${g.acts && g.money >= rc ? '' : 'disabled'}>Correr atrás de ${miss} · ${fmt(rc)} · 1 ação</button>` : ''}</div></div>`;
   }).join('')}</div>`;
+}
+function partsCard() {
+  const L = OR.parts(); if (!L.length) return '';
+  return `<div class="career"><small class="note">Parcerias na sua área · rendem ${fmt(L.reduce((a, p) => a + p.v, 0))} por dia</small>${L.map((p, k) => `<div class="ord"><div class="oh"><b>${esc(p.who)}</b><span>${esc(S.M.z[p.z].n)}</span></div><small>${esc(p.what)} · ${fmt(p.v)} por dia${p.heat > 1 ? ' · chama atenção' : ''}${p.loy > 0 ? ' · o povo gosta' : p.loy < 0 ? ' · o povo não gosta' : ''}</small><div class="row2"><button class="ghost btn sm" data-a="expel" data-n="${k}">Não quero mais vocês aqui</button></div></div>`).join('')}</div>`;
 }
 function tutCard() {
   if (!E.tutShow()) return '';
@@ -274,12 +282,12 @@ function tabZone() {
   h += `<div class="atk"><div class="vs"><div><b id="amtv">${need}</b><small>seus ${S.MD.unit}</small></div><span>X</span><div><b>${vis ? d.t : '?'}</b><small>defendendo</small></div></div>
     <input type="range" id="amt" min="1" max="${g.reserve}" value="${need}" aria-label="Quantidade">
     <p class="sub" style="margin:2px 0 12px">Chance: <span class="odds" id="odds"></span>${vis ? '' : ' <span class="note">(estimativa)</span>'}</p>
-    <button class="gold btn act" data-a="attack" ${g.acts >= 2 ? '' : 'disabled'}><span>${esc(S.MD.attackVerb)}</span><em>2 ações</em></button></div>`;
+    <button class="gold btn act" data-a="attack" ${g.acts >= E.atkCost() ? '' : 'disabled'}><span>${esc(S.MD.attackVerb)}</span><em>${E.atkCost()} aç${E.atkCost() > 1 ? 'ões' : 'ão'}</em></button></div>`;
   return h;
 }
 function tabCmd() {
   const g = S.G, inc = pIncome(), up = upkeep();
-  let h = finCard() + jailCard() + ordersCard() + tutCard() + careerCard() + objCard() + buffList() + `<button class="ghost btn act" data-g="tree"><span>Árvore de habilidades<small>${esc(E.charOf()[0])} · ${skillPoints()} ponto${skillPoints() === 1 ? '' : 's'} livre${skillPoints() === 1 ? '' : 's'}</small></span><em>abrir</em></button><button class="ghost btn act" data-g="career"><span>Carreira e conquistas</span><em>abrir no celular</em></button>`;
+  let h = finCard() + jailCard() + ordersCard() + partsCard() + tutCard() + careerCard() + objCard() + buffList() + `<button class="ghost btn act" data-g="tree"><span>Árvore de habilidades<small>${esc(E.charOf()[0])} · ${skillPoints()} ponto${skillPoints() === 1 ? '' : 's'} livre${skillPoints() === 1 ? '' : 's'}</small></span><em>abrir</em></button><button class="ghost btn act" data-g="career"><span>Carreira e conquistas</span><em>abrir no celular</em></button>`;
   h += `<h4>Loja · sem ação</h4>`;
   h += can('crew') ? `<div class="shop"><button class="ghost" data-a="buy" data-n="sol">${I.sol}<span><b>${esc(S.MD.recruit[0])}</b><small>${esc(S.MD.recruit[1])}</small></span><em>${fmt(recruitCost())}</em></button>` +
     (can('attack') ? `<button class="ghost" data-a="buy" data-n="pis">${I.pis}<span><b>10 pistolas</b><small>Cada ${S.MD.u1} armado bate mais forte</small></span><em>${fmt(600)}</em></button><button class="ghost" data-a="buy" data-n="rif">${I.rif}<span><b>5 fuzis</b><small>O que mais pesa no confronto</small></span><em>${fmt(1800)}</em></button></div><p class="note">Poder da tropa: <b style="color:var(--g1)">x${pq().toFixed(2)}</b>. Sem arma 0,6, pistola 1,1, fuzil 1,8.</p>` : `</div>${lockBox('attack', 'Comprar armas')}`) : lockBox('crew');
@@ -386,9 +394,10 @@ function renderPhone() {
     }
     h += '</div>';
   } else if (phone.app === 'car') {
-    const nx = g.rank < 5 ? XP[g.rank + 1] : null;
+    const ri = E.rankIdx(), nx = ri < 11 ? XP2[ri + 1] : null, T = S.MD.titles || S.MD.ranks, LV = E.lvlOf();
     h = `<div class="ahead"><button class="back" data-app="home" aria-label="Voltar">${I.back}</button><div><b>Carreira</b><small>${g.xp} de respeito${nx ? ` · próximo cargo em ${nx}` : ''}</small></div></div><div class="abody app-pad">
-      <h3>Cargos</h3>${S.MD.ranks.map((r, k) => `<div class="rank ${k < g.rank ? 'done' : k === g.rank ? 'cur' : ''}"><span class="n">${k + 1}</span><span><b>${esc(r)}</b><small>${esc(UNLOCK[k].label)} · ${XP[k]} de respeito</small></span></div>`).join('')}
+      <div class="career"><small class="note">Nível ${LV.n}</small><div class="meter"><i style="width:${Math.round(LV.cur / LV.need * 100)}%;background:var(--g1)"></i></div><p class="note" style="margin:6px 0 0">${LV.cur} de ${LV.need} para o nível ${LV.n + 1}. Cada nível dá 1 ponto de habilidade. Ganha respeito conquistando, vendendo, entregando pedidos e cumprindo missões.</p></div>
+      <h3>Cargos</h3>${T.map((r, k) => `<div class="rank ${k < ri ? 'done' : k === ri ? 'cur' : ''} ${k % 2 ? 'sub' : ''}"><span class="n">${k + 1}</span><span><b>${esc(r)}</b><small>${k % 2 ? 'Promoção com bônus em dinheiro' : esc(UNLOCK[k / 2].label)} · ${XP2[k]} de respeito</small></span></div>`).join('')}
       <h3>Habilidades · ${skillPoints()} ponto${skillPoints() === 1 ? '' : 's'}</h3><p class="note">Fama: <b>${esc(E.charOf()[0])}</b></p><button class="gold btn" data-g="tree" style="width:100%;margin-bottom:8px">Abrir árvore de habilidades</button>
       <h3>Conquistas · ${Object.keys(g.ach).length}/${ACH.length}</h3><div class="achs">${ACH.map(a => `<div class="ach ${g.ach[a.id] ? 'on' : ''}"><b>${esc(a.name)}</b>${esc(a.desc)}</div>`).join('')}</div></div>`;
   } else if (phone.app === 'nws') {
@@ -455,7 +464,7 @@ function renderMenu() {
 }
 const HOW = `<h2>Como jogar</h2><ul class="rep txt">
  <li>Escolha a base e como você começa: do zero, no meio ou já no comando.</li>
- <li>Atacar gasta 2 ações. Zona recém-tomada rende metade por 3 dias, até a tropa se firmar.</li>
+ <li>Você tem de 5 a 14 ações por dia, conforme o tamanho do território e as habilidades. Atacar gasta 2 ações. Zona recém-tomada rende metade por 3 dias, até a tropa se firmar.</li>
  <li>O celular é o centro do jogo. O chefe passa missões, os olheiros avisam de ataque, moradores pedem ajuda e contatos oferecem negócio. Cada resposta tem consequência.</li>
  <li>Cumprir missões e conquistar zonas dá respeito. Com respeito você sobe de cargo e libera novas funções: equipe, ataques, construções, mercado e diplomacia.</li>
  <li>Na visão Ataque do mapa, verde é alvo fácil e vermelho é suicídio. O que está apagado está fora de alcance.</li>
@@ -487,6 +496,7 @@ document.addEventListener('click', async e => {
   if (D.confirm) { store.del(SAVE + D.confirm); closeDlg(); await newGame(D.confirm); setup = { rank: 0, nick: setup.nick }; return enterGame(); }
   if (D.cont) { if (await resume(D.cont)) enterGame(); return; }
   if (D.tab) { const p = $('#panel'); if (mob() && D.tab === tab && !p.classList.contains('min')) p.classList.add('min'); else { p.classList.remove('min'); tab = D.tab; } sfx.click(); return renderPanel(); }
+  if (D.tbr) { tbr = +D.tbr; $('#treeOv .tbox').innerHTML = treeHTML(); return; }
   if (D.learn) { if (E.learn(D.learn)) { $('#treeOv .tbox').innerHTML = treeHTML(); refresh(); } return; }
   if (D.leg) { legOpen = !legOpen; $('#legend2').classList.toggle('open', legOpen); return; }
   if (D.bcat) { bcat = D.bcat; sfx.click(); return renderPanel(); }
@@ -508,6 +518,7 @@ document.addEventListener('click', async e => {
   if (a === 'truce') { A.truce(+D.n); saveGame(); return refresh(); }
   if (a === 'deliver') { OR.deliver(+D.n); return refresh(); }
   if (a === 'rush') { OR.rush(+D.n); return refresh(); }
+  if (a === 'expel') { OR.expel(+D.n); return refresh(); }
   if (A[a]) { A[a](D.n); saveGame(); refresh(); }
 });
 document.addEventListener('input', e => { if (e.target.id === 'amt') updOdds(); if (e.target.id === 'nick') setup.nick = e.target.value; });

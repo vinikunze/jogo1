@@ -25,6 +25,8 @@ export const RIVAL_STR = [
 ];
 
 export const XP = [0, 150, 450, 1000, 1800, 3000];
+// 12 cargos: os pares (0, 2, 4...) liberam recursos novos; os ímpares são promoções intermediárias
+export const XP2 = [0, 80, 150, 300, 450, 700, 1000, 1400, 1800, 2400, 3000, 4200];
 
 export const UNLOCK = [
   { key: 'zap', label: 'Celular e missões do chefe' },
@@ -51,10 +53,11 @@ const C = (id, name, role, min, max = 9) => ({ id, name, role, min, max });
 
 export const MODES = {
   faccao: {
-    name: 'Facção', map: 'rio', city: 'Rio de Janeiro', color: '#e5484d', player: 'Tropa do Trilho',
+    name: 'Facção', map: 'rio2', city: 'Rio de Janeiro', color: '#e5484d', player: 'Tropa do Trilho',
     blurb: 'Comece como olheiro ou já como dono da boca. Domine as comunidades, depois o asfalto, depois a cidade.',
-    feats: ['32 zonas', 'Carreira de olheiro a patrão', 'Baile e contenção', 'Mercado de carga'],
+    feats: ['53 zonas, 5 rivais', '12 cargos, de olheiro a chefão', 'Baile e contenção', 'Mercado de carga'],
     ranks: ['Olheiro', 'Vapor', 'Soldado', 'Gerente', 'Dono da Boca', 'Patrão'],
+    titles: ['Olheiro', 'Fogueteiro', 'Vapor', 'Avião', 'Soldado', 'Contenção', 'Gerente', 'Gerente geral', 'Dono da Boca', 'Frente do complexo', 'Patrão', 'Chefão do Rio'],
     starts: [[0, 'Do zero', 'Olheiro. Só tem o celular e as ordens do chefe.'], [2, 'Linha de frente', 'Soldado. Já comanda a tropa no confronto.'], [4, 'Dono da boca', 'Manda na área, compra, vende e constrói.']],
     startPool: t => t === 'comunidade', startTxt: 'Escolha a comunidade onde a sua história começa.',
     inc: { comunidade: 1.5 }, unit: 'soldados', u1: 'soldado', heat: 'Calor da polícia', heatAtk: 8,
@@ -86,13 +89,14 @@ export const MODES = {
       { id: 'olheiros', cat: 'apo', name: 'Rede de olheiros', desc: 'Vê os vizinhos, avisa ataque, +10% de defesa', cost: 900, eff: { intel: 1, def: .1 } },
       { id: 'radio', cat: 'apo', name: 'Rádio comunitária', desc: '+1 lealdade em todas as suas zonas', cost: 2400, eff: { aloy: 1 } },
     ],
-    rivals: [{ name: 'Bonde da Serra', color: '#3b82f6', pool: 'comunidade' }, { name: 'Tropa do Cais', color: '#a855f7', pool: 'comunidade' }, { name: 'Milícia do Asfalto', color: '#22a06b', pool: 'periferia' }],
+    rivals: [{ name: 'Bonde da Serra', color: '#3b82f6', pool: 'comunidade' }, { name: 'Tropa do Cais', color: '#a855f7', pool: 'comunidade' }, { name: 'Milícia do Asfalto', color: '#22a06b', pool: 'periferia' }, { name: 'Comando do Morro Alto', color: '#eab308', pool: 'comunidade' }, { name: 'Liga da Zona Norte', color: '#06b6d4', pool: 'suburbio' }],
   },
   milicia: {
-    name: 'Milícia', map: 'rio', city: 'Rio de Janeiro', color: '#22a06b', player: 'Patrulha Cidadã',
+    name: 'Milícia', map: 'rio2', city: 'Rio de Janeiro', color: '#22a06b', player: 'Patrulha Cidadã',
     blurb: 'Gás, van, sinal de TV e taxa de segurança. Comece como informante ou como chefe de área.',
     feats: ['Forte na periferia', 'Taxas e serviços', 'Investigação', 'Carreira até comandante'],
     ranks: ['Informante', 'Segurança', 'Cobrador', 'Sargento da patrulha', 'Chefe de área', 'Comandante'],
+    titles: ['Informante', 'Vigia', 'Segurança', 'Motorista de van', 'Cobrador', 'Cobrador-chefe', 'Sargento da patrulha', 'Subtenente', 'Chefe de área', 'Chefe regional', 'Comandante', 'Comandante-geral'],
     starts: [[0, 'Do zero', 'Informante. Leva recado e vigia a área.'], [2, 'Cobrador', 'Já comanda a patrulha na rua.'], [4, 'Chefe de área', 'Controla serviços, taxas e contatos.']],
     startPool: t => t === 'periferia' || t === 'suburbio', startTxt: 'Escolha a área da periferia ou do subúrbio onde a patrulha começa.',
     inc: { periferia: 1.6, suburbio: 1.4 }, unit: 'homens', u1: 'homem', heat: 'Investigação', heatAtk: 6,
@@ -123,13 +127,14 @@ export const MODES = {
       { id: 'cancela', cat: 'def', name: 'Cancelas nas entradas', desc: '+20% de defesa e a polícia entra menos', cost: 1000, eff: { def: .2, raid: .1 } },
       { id: 'cameras', cat: 'apo', name: 'Câmeras nas ruas', desc: 'Vê os vizinhos, avisa ataque, +10% de defesa', cost: 1100, eff: { intel: 1, def: .1 } },
     ],
-    rivals: [{ name: 'Tropa do Trilho', color: '#e5484d', pool: 'comunidade' }, { name: 'Bonde da Serra', color: '#3b82f6', pool: 'comunidade' }, { name: 'Patrulha Oeste', color: '#e07b39', pool: 'periferia' }],
+    rivals: [{ name: 'Tropa do Trilho', color: '#e5484d', pool: 'comunidade' }, { name: 'Bonde da Serra', color: '#3b82f6', pool: 'comunidade' }, { name: 'Patrulha Oeste', color: '#e07b39', pool: 'periferia' }, { name: 'Comando do Morro Alto', color: '#eab308', pool: 'comunidade' }, { name: 'Liga da Baixada', color: '#a855f7', pool: 'periferia' }],
   },
   policia: {
-    name: 'Polícia', map: 'rio', city: 'Rio de Janeiro', color: '#3b82f6', player: 'Força-Tarefa', budget: 1200,
+    name: 'Polícia', map: 'rio2', city: 'Rio de Janeiro', color: '#3b82f6', player: 'Força-Tarefa', budget: 1200,
     blurb: 'Comece como recruta ou já no comando do batalhão. Retome a cidade sem perder o apoio da população.',
     feats: ['Carreira de recruta a comandante', 'Orçamento diário', 'Pressão da mídia', 'Apreensões'],
     ranks: ['Recruta', 'Soldado', 'Sargento', 'Tenente', 'Capitão', 'Comandante'],
+    titles: ['Recruta', 'Soldado', 'Cabo', 'Terceiro-sargento', 'Sargento', 'Subtenente', 'Tenente', 'Primeiro-tenente', 'Capitão', 'Major', 'Comandante', 'Coronel comandante'],
     starts: [[0, 'Recruta', 'Acabou de sair da academia. Cumpre ordens.'], [2, 'Sargento', 'Já lidera a equipe nas operações.'], [4, 'Capitão', 'Comanda o batalhão, as bases e o orçamento.']],
     startPool: t => t === 'centro' || t === 'nobre' || t === 'suburbio', startTxt: 'Escolha o batalhão de onde as operações saem.',
     inc: {}, unit: 'agentes', u1: 'agente', heat: 'Pressão da mídia', heatAtk: 0,
@@ -157,13 +162,14 @@ export const MODES = {
       { id: 'drone', cat: 'apo', name: 'Central de drones', desc: 'Vê os vizinhos e +15% de defesa', cost: 2200, eff: { intel: 1, def: .15 } },
       { id: 'radio', cat: 'apo', name: 'Rádio e redes da unidade', desc: '+1 lealdade em todas as suas áreas', cost: 2400, eff: { aloy: 1 } },
     ],
-    rivals: [{ name: 'Tropa do Trilho', color: '#e5484d', pool: 'comunidade' }, { name: 'Bonde da Serra', color: '#a855f7', pool: 'comunidade' }, { name: 'Milícia do Asfalto', color: '#22a06b', pool: 'periferia' }],
+    rivals: [{ name: 'Tropa do Trilho', color: '#e5484d', pool: 'comunidade' }, { name: 'Bonde da Serra', color: '#a855f7', pool: 'comunidade' }, { name: 'Milícia do Asfalto', color: '#22a06b', pool: 'periferia' }, { name: 'Comando do Morro Alto', color: '#eab308', pool: 'comunidade' }, { name: 'Patrulha Oeste', color: '#e07b39', pool: 'periferia' }],
   },
   mafia: {
-    name: 'Máfia', map: 'palermo', city: 'Sicília', color: '#c2185b', player: 'Famiglia Rubino',
+    name: 'Máfia', map: 'sicilia', city: 'Sicília', color: '#c2185b', player: 'Famiglia Rubino',
     blurb: 'Comece como associado ou já como capo. Cidade por cidade até a Capital, com a Antimáfia na cola.',
-    feats: ['22 zonas', 'Carreira até Don', 'Cassinos e contrabando', 'Famílias rivais'],
+    feats: ['Sicília inteira, 50 zonas', '12 cargos, até Capo dei capi', 'Cassinos e contrabando', 'Famílias rivais'],
     ranks: ['Associado', 'Picciotto', 'Soldato', 'Capodecina', 'Consigliere', 'Don'],
+    titles: ['Associato', 'Galoppino', 'Picciotto', 'Giovane d\'onore', 'Soldato', 'Uomo d\'onore', 'Capodecina', 'Sottocapo', 'Consigliere', 'Capomandamento', 'Don', 'Capo dei capi'],
     starts: [[0, 'Associado', 'Ainda não fez o juramento. Faz favores.'], [2, 'Soldato', 'Homem feito, comanda o grupo na rua.'], [4, 'Consigliere', 'Cuida dos negócios, contatos e da política.']],
     startPool: t => t === 'citta' || t === 'campagna', startTxt: 'Escolha a cidade natal da família.',
     inc: { capitale: 1.2, costa: 1.3 }, unit: 'picciotti', u1: 'picciotto', heat: 'Antimáfia', heatAtk: 7,
@@ -193,7 +199,7 @@ export const MODES = {
       { id: 'guardie', cat: 'def', name: 'Guarda-costas', desc: '+35% de defesa, avisa ataque', cost: 1500, eff: { def: .35, intel: 1 } },
       { id: 'omerta', cat: 'apo', name: 'Pacto de silêncio', desc: 'A polícia entra menos e -1 de pressão', cost: 2000, eff: { raid: .15, heat: -1 } },
     ],
-    rivals: [{ name: 'Famiglia Varone', color: '#2f80ed', pool: 'citta' }, { name: 'Famiglia Lo Cascio', color: '#1fa38a', pool: 'citta' }, { name: 'Famiglia Randazzo', color: '#e07b39', pool: 'campagna' }],
+    rivals: [{ name: 'Famiglia Varone', color: '#2f80ed', pool: 'citta' }, { name: 'Famiglia Lo Cascio', color: '#1fa38a', pool: 'citta' }, { name: 'Famiglia Randazzo', color: '#e07b39', pool: 'campagna' }, { name: 'Famiglia Catalano', color: '#eab308', pool: 'citta' }, { name: 'Clan dei Pastori', color: '#8b5cf6', pool: 'campagna' }],
   },
 };
 

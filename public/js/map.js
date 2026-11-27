@@ -128,6 +128,6 @@ export function arrow(a, b) {
   requestAnimationFrame(step);
 }
 export function fitAll() { if (map) map.fitBounds(S.M.bounds, { padding: pad(), duration: 0 }); }
-export function focusOn(i, zoomIn) { if (!map) return; const z = zoomIn ? Math.max(map.getZoom(), S.M.id === 'rio' ? 10.6 : 9.1) : map.getZoom(); map.easeTo({ center: S.M.z[i].l, zoom: z, padding: pad(), duration: 650 }); }
+export function focusOn(i, zoomIn) { if (!map) return; const z = zoomIn ? Math.max(map.getZoom(), { rio: 10.6, rio2: 10.6, palermo: 9.1, sicilia: 8.3 }[S.M.id] || 9.5) : map.getZoom(); map.easeTo({ center: S.M.z[i].l, zoom: z, padding: pad(), duration: 650 }); }
 export function zoom(d) { if (!map) return; d > 0 ? map.zoomIn() : map.zoomOut(); }
 export function resize() { if (map) map.resize(); }

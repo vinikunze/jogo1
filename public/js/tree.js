@@ -1,87 +1,81 @@
-// Árvore de habilidades de cada modo. 3 ramos, 4 níveis. No nível 3 você escolhe
-// um de dois caminhos: um puxa para o bom caráter, o outro para o mau.
-// fx: efeitos (ver engine.js), al: quanto mexe no caráter (+ bom, - mau)
-const N = (id, b, t, n, d, fx, al = 0, pair = null) => ({ id, b, t, n, d, fx, al, pair, cost: t === 4 ? 2 : 1, min: [0, 0, 1, 2, 3][t] });
+// Árvore de habilidades grande, no estilo RPG: 5 ramos, 8 níveis cada.
+// Nos níveis 3 e 6 de cada ramo você escolhe um de dois caminhos (bom ou mau caráter) e fecha o outro.
+// fx: efeitos aplicados no engine; al: quanto mexe na fama (+ bom, - mau).
+// Os nomes mudam por modo: [facção, milícia, polícia, máfia].
 
-export const TREES = {
-  faccao: {
-    br: ['Comunidade', 'Guerra', 'Esquema'], good: 'Cria da comunidade', bad: 'Tirano do morro',
-    nodes: [
-      N('f_a1', 0, 1, 'Cria do morro', 'A lealdade dos moradores sobe 50% mais rápido.', ['loy'], 5),
-      N('f_a2', 0, 2, 'Serviço na veia', 'Serviços cobrados do morador rendem 25% mais.', ['srv']),
-      N('f_a3g', 0, 3, 'Mão estendida', 'Todo dia +1 de lealdade em todas as suas zonas. O povo vê você como protetor.', ['aloy'], 20, 'f_a3b'),
-      N('f_a3b', 0, 3, 'Toque de recolher', 'Arrecadação +25%, mas a lealdade cai um pouco todo dia. O povo obedece por medo.', ['tax'], -20, 'f_a3g'),
-      N('f_a4', 0, 4, 'Dono da comunidade', 'Recrutar custa 25% menos e você ganha 20% mais respeito.', ['rec', 'xp']),
-      N('f_b1', 1, 1, 'Linha de frente', '+15% de força nos ataques.', ['atk']),
-      N('f_b2', 1, 2, 'Socorro rápido', '25% menos baixas nos confrontos.', ['med']),
-      N('f_b3g', 1, 3, 'Disciplina do bonde', '+20% de defesa em todas as zonas. Ninguém mexe com morador.', ['def'], 15, 'f_b3b'),
-      N('f_b3b', 1, 3, 'Terror', '+10% de ataque e as áreas tomadas já começam obedecendo.', ['fear'], -20, 'f_b3g'),
-      N('f_b4', 1, 4, 'Bonde imparável', '+1 ação por dia.', ['act']),
-      N('f_c1', 2, 1, 'Olho vivo', 'Vê a tropa de todas as zonas e recebe todo aviso de ataque.', ['intel']),
-      N('f_c2', 2, 2, 'Discrição', '30% menos pressão em cada ação.', ['heat']),
-      N('f_c3g', 2, 3, 'Dinheiro limpo', 'Construções 20% mais baratas. Fachada de verdade.', ['build'], 10, 'f_c3b'),
-      N('f_c3b', 2, 3, 'Arrego na polícia', 'Acertos 40% mais baratos e 25% menos operações.', ['bribe', 'raid'], -15, 'f_c3g'),
-      N('f_c4', 2, 4, 'Atacadista', 'Compra 10% mais barato, vende 15% mais caro e depósito +50%.', ['trade', 'stor']),
-    ],
-  },
-  milicia: {
-    br: ['Associação', 'Patrulha', 'Negócios'], good: 'Protetor do bairro', bad: 'Extorsionário',
-    nodes: [
-      N('m_a1', 0, 1, 'Presidente da associação', 'A lealdade dos moradores sobe 50% mais rápido.', ['loy'], 5),
-      N('m_a2', 0, 2, 'Gás na porta', 'Serviços cobrados do morador rendem 25% mais.', ['srv']),
-      N('m_a3g', 0, 3, 'Preço justo', 'Todo dia +1 de lealdade em todas as suas áreas. O morador defende vocês.', ['aloy'], 20, 'm_a3b'),
-      N('m_a3b', 0, 3, 'Taxa obrigatória', 'Arrecadação +25%, mas a lealdade cai um pouco todo dia.', ['tax'], -20, 'm_a3g'),
-      N('m_a4', 0, 4, 'Curral eleitoral', 'Acertos 40% mais baratos e recrutar custa 25% menos.', ['bribe', 'rec']),
-      N('m_b1', 1, 1, 'Ex-policiais', '+15% de força nos ataques.', ['atk']),
-      N('m_b2', 1, 2, 'Treinamento tático', '25% menos baixas nos confrontos.', ['med']),
-      N('m_b3g', 1, 3, 'Segurança de verdade', '+20% de defesa em todas as áreas.', ['def'], 15, 'm_b3b'),
-      N('m_b3b', 1, 3, 'Expulsão de moradores', 'Cada área tomada rende um saque em dinheiro. O povo passa a temer vocês.', ['loot'], -20, 'm_b3g'),
-      N('m_b4', 1, 4, 'Rede de rádio', '+1 ação por dia.', ['act']),
-      N('m_c1', 2, 1, 'Câmeras e informantes', 'Vê a tropa de todas as zonas e recebe todo aviso de ataque.', ['intel']),
-      N('m_c2', 2, 2, 'Laranjas', '30% menos pressão em cada ação.', ['heat']),
-      N('m_c3g', 2, 3, 'Empresa registrada', 'Construções 20% mais baratas.', ['build'], 10, 'm_c3b'),
-      N('m_c3b', 2, 3, 'Grilagem', '+R$ 70 por área todo dia, mas a pressão sobe 1 por dia.', ['kick'], -15, 'm_c3g'),
-      N('m_c4', 2, 4, 'Monopólio', 'Compra 10% mais barato, vende 15% mais caro e depósito +50%.', ['trade', 'stor']),
-    ],
-  },
-  policia: {
-    br: ['Comunidade', 'Tática', 'Inteligência'], good: 'Policial exemplar', bad: 'Banda podre',
-    nodes: [
-      N('p_a1', 0, 1, 'Polícia de proximidade', 'A lealdade dos moradores sobe 50% mais rápido.', ['loy'], 5),
-      N('p_a2', 0, 2, 'Comunicação social', '30% menos pressão da mídia em cada ação.', ['heat']),
-      N('p_a3g', 0, 3, 'Pacificação', 'Todo dia +1 de lealdade em todas as áreas ocupadas.', ['aloy'], 20, 'p_a3b'),
-      N('p_a3b', 0, 3, 'Arrego das bocas', '+R$ 70 por área todo dia em propina, mas a pressão sobe 1 por dia.', ['kick'], -25, 'p_a3g'),
-      N('p_a4', 0, 4, 'Comando respeitado', 'Reforço custa 25% menos e você ganha 20% mais respeito.', ['rec', 'xp']),
-      N('p_b1', 1, 1, 'Operações especiais', '+15% de força nas operações.', ['atk']),
-      N('p_b2', 1, 2, 'Atendimento tático', '25% menos baixas nos confrontos.', ['med']),
-      N('p_b3g', 1, 3, 'Regras de engajamento', '+20% de defesa em todas as áreas.', ['def'], 15, 'p_b3b'),
-      N('p_b3b', 1, 3, 'Pé na porta', '+10% de força e as áreas ocupadas já começam obedecendo.', ['fear'], -20, 'p_b3g'),
-      N('p_b4', 1, 4, 'Ocupação permanente', '+1 ação por dia.', ['act']),
-      N('p_c1', 2, 1, 'Serviço reservado', 'Vê a tropa de todas as zonas e recebe todo aviso de ataque.', ['intel']),
-      N('p_c2', 2, 2, 'Corregedoria amiga', 'Afastamento pela metade do tempo e mais raro.', ['jail']),
-      N('p_c3g', 2, 3, 'Leilão transparente', 'O leilão vende 15% mais caro.', ['trade'], 10, 'p_c3b'),
-      N('p_c3b', 2, 3, 'Desvio de apreensões', 'Cada área ocupada rende um extra em dinheiro por fora.', ['loot'], -20, 'p_c3g'),
-      N('p_c4', 2, 4, 'Central de comando', 'Pátio +50% e construções 20% mais baratas.', ['stor', 'build']),
-    ],
-  },
-  mafia: {
-    br: ['Famiglia', 'Soldati', 'Affari'], good: "Uomo d'onore", bad: 'Il Tiranno',
-    nodes: [
-      N('a_a1', 0, 1, 'Padrinho do bairro', 'A lealdade dos moradores sobe 50% mais rápido.', ['loy'], 5),
-      N('a_a2', 0, 2, 'Omertà', '30% menos pressão em cada ação.', ['heat']),
-      N('a_a3g', 0, 3, 'Protettore', 'Todo dia +1 de lealdade em todas as suas zonas.', ['aloy'], 20, 'a_a3b'),
-      N('a_a3b', 0, 3, 'Pizzo dobrado', 'Arrecadação +25%, mas a lealdade cai um pouco todo dia.', ['tax'], -20, 'a_a3g'),
-      N('a_a4', 0, 4, 'Consigliere', 'Acertos 40% mais baratos e você ganha 20% mais respeito.', ['bribe', 'xp']),
-      N('a_b1', 1, 1, 'Picciotti', '+15% de força nos ataques.', ['atk']),
-      N('a_b2', 1, 2, 'Medico di famiglia', '25% menos baixas nos confrontos.', ['med']),
-      N('a_b3g', 1, 3, "Codice d'onore", '+20% de defesa em todas as zonas.', ['def'], 15, 'a_b3b'),
-      N('a_b3b', 1, 3, 'Il Terrore', '+10% de força e as zonas tomadas já começam obedecendo.', ['fear'], -25, 'a_b3g'),
-      N('a_b4', 1, 4, 'Commissione', '+1 ação por dia.', ['act']),
-      N('a_c1', 2, 1, 'Orecchie ovunque', 'Vê a tropa de todas as zonas e recebe todo aviso de ataque.', ['intel']),
-      N('a_c2', 2, 2, 'Avvocati', 'Prisão pela metade do tempo e mais rara.', ['jail']),
-      N('a_c3g', 2, 3, 'Imprese pulite', 'Construções 20% mais baratas.', ['build'], 10, 'a_c3b'),
-      N('a_c3b', 2, 3, 'Usura pesada', 'Serviços cobrados rendem 25% mais. Ninguém atrasa.', ['srv'], -15, 'a_c3g'),
-      N('a_c4', 2, 4, 'Porto franco', 'Compra 10% mais barato, vende 15% mais caro e depósito +50%.', ['trade', 'stor']),
-    ],
-  },
+const COST = [0, 1, 1, 2, 2, 2, 3, 3, 4];
+const MIN = [0, 0, 0, 1, 1, 2, 3, 4, 5];
+
+// [ramo, nível, fx, fama, par(letra) , descrição, nomes]
+const SLOTS = [
+  // ===== Ramo 0: povo =====
+  [0, 1, ['loy'], 3, '', 'A lealdade dos moradores sobe 50% mais rápido.', ['Cria do morro', 'Presidente da associação', 'Polícia de proximidade', 'Padrinho do bairro']],
+  [0, 2, ['srv'], 0, '', 'Serviços cobrados do morador rendem 25% mais.', ['Serviço na veia', 'Gás na porta', 'Ronda paga pelos comércios', 'Proteção dos comércios']],
+  [0, 3, ['aloy'], 15, 'g', 'Todo dia +1 de lealdade em todas as suas zonas.', ['Mão estendida', 'Preço justo', 'Pacificação', 'Protettore']],
+  [0, 3, ['tax'], -15, 'b', 'Arrecadação +25%, mas a lealdade cai um pouco todo dia.', ['Toque de recolher', 'Taxa obrigatória', 'Pedágio nas áreas', 'Pizzo dobrado']],
+  [0, 4, ['rec'], 0, '', 'Recrutar custa 25% menos.', ['Escola da firma', 'Escolinha de futebol', 'Cursos de formação', 'Giovani della famiglia']],
+  [0, 5, ['srv2'], 0, '', 'Serviços cobrados rendem mais 25% em cima.', ['Gatonet na laje', 'Central de serviços', 'Convênios com o comércio', 'Racket dei servizi']],
+  [0, 6, ['loy2'], 15, 'g', 'A lealdade das suas zonas nunca cai abaixo de 40.', ['Coração da comunidade', 'Bairro fechado com vocês', 'Polícia do povo', 'Il santo protettore']],
+  [0, 6, ['tax2'], -15, 'b', 'Arrecadação +20% em cima, mas a lealdade cai mais rápido.', ['Lei do morro', 'Cobrança porta a porta', 'Arrego geral', 'Il tributo']],
+  [0, 7, ['xp'], 0, '', 'Ganha 20% mais respeito em tudo.', ['Nome na boca do povo', 'Liderança comunitária', 'Comando reconhecido', 'Rispetto']],
+  [0, 8, ['povo'], 5, '', 'Capstone: +2 de lealdade por dia em todas as zonas e arrecadação +15%.', ['Dono da comunidade', 'Prefeito informal', 'Herói da cidade', 'Padrino di Palermo']],
+  // ===== Ramo 1: guerra =====
+  [1, 1, ['atk'], 0, '', '+15% de força nos ataques.', ['Linha de frente', 'Ex-policiais', 'Operações especiais', 'Picciotti']],
+  [1, 2, ['med'], 0, '', '25% menos baixas nos confrontos.', ['Socorro rápido', 'Treinamento tático', 'Atendimento tático', 'Medico di famiglia']],
+  [1, 3, ['def'], 12, 'g', '+20% de defesa em todas as zonas.', ['Disciplina do bonde', 'Segurança de verdade', 'Regras de engajamento', "Codice d'onore"]],
+  [1, 3, ['fear'], -15, 'b', '+10% de ataque e as áreas tomadas já começam obedecendo.', ['Terror', 'Expulsão de moradores', 'Pé na porta', 'Il Terrore']],
+  [1, 4, ['atk2'], 0, '', 'Mais 10% de força nos ataques.', ['Bonde pesado', 'Patrulha armada', 'Grupamento tático', 'Lupara']],
+  [1, 5, ['act'], 0, '', '+1 ação por dia.', ['Bonde imparável', 'Rede de rádio', 'Ocupação permanente', 'Commissione']],
+  [1, 6, ['shield'], 12, 'g', 'Zona recém-tomada não pode ser atacada nos 3 primeiros dias.', ['Contenção na entrada', 'Divisa fechada', 'Base de ocupação', 'Fortezza']],
+  [1, 6, ['loot'], -15, 'b', 'Cada zona tomada rende um saque em dinheiro.', ['Saque', 'Despejo', 'Desvio de apreensões', 'Bottino']],
+  [1, 7, ['med2'], 0, '', 'Mais 15% de baixas a menos.', ['Médico do morro', 'Enfermaria própria', 'Hospital de campanha', 'Clinica privata']],
+  [1, 8, ['blitz'], 0, '', 'Capstone: atacar custa só 1 ação.', ['Guerra relâmpago', 'Tomada relâmpago', 'Operação relâmpago', 'Blitz siciliano']],
+  // ===== Ramo 2: inteligência =====
+  [2, 1, ['intel'], 0, '', 'Vê a tropa de todas as zonas e recebe todo aviso de ataque.', ['Olho vivo', 'Câmeras e informantes', 'Serviço reservado', 'Orecchie ovunque']],
+  [2, 2, ['heat'], 0, '', '30% menos pressão em cada ação.', ['Discrição', 'Laranjas', 'Comunicação social', 'Omertà']],
+  [2, 3, ['build'], 10, 'g', 'Construções 20% mais baratas.', ['Dinheiro limpo', 'Empresa registrada', 'Licitação limpa', 'Imprese pulite']],
+  [2, 3, ['bribe', 'raid'], -12, 'b', 'Acertos 40% mais baratos e 25% menos operações.', ['Arrego na polícia', 'Delegado amigo', 'Vista grossa', 'Giudice comprato']],
+  [2, 4, ['scout'], 0, '', 'Mandar olheiro não custa dinheiro.', ['Fogueteiros', 'Motoboys informantes', 'Drones', 'Picciotti in giro']],
+  [2, 5, ['jail'], 0, '', 'Prisão pela metade do tempo e mais rara.', ['Advogado de plantão', 'Habeas corpus', 'Corregedoria amiga', 'Avvocati']],
+  [2, 6, ['clean'], 12, 'g', 'A pressão cai 2 a mais por dia.', ['Perfil baixo', 'Fachada legal', 'Transparência', 'Basso profilo']],
+  [2, 6, ['kick'], -15, 'b', '+R$ 70 por zona todo dia, mas a pressão sobe 1 por dia.', ['Esquema na pista', 'Grilagem', 'Arrego das bocas', 'Estorsione']],
+  [2, 7, ['spy'], 0, '', 'Você sempre sabe quando e onde os rivais vão atacar.', ['X9 dentro dos rivais', 'Infiltrados', 'Escuta autorizada', 'Talpa']],
+  [2, 8, ['ghost'], 0, '', 'Capstone: metade das operações contra você.', ['Fantasma', 'Intocável', 'Blindagem política', 'Invisibile']],
+  // ===== Ramo 3: negócios =====
+  [3, 1, ['trade'], 0, '', 'Compra 10% mais barato e vende 15% mais caro.', ['Atacadista', 'Distribuidor', 'Leilão organizado', 'Mercante']],
+  [3, 2, ['stor'], 0, '', 'Depósito +50%.', ['Depósito escondido', 'Galpão', 'Pátio ampliado', 'Magazzino']],
+  [3, 3, ['fair'], 10, 'g', 'Pedidos pagam 10% mais e os compradores confiam mais em você.', ['Palavra de homem', 'Nome limpo na praça', 'Leilão justo', 'Parola data']],
+  [3, 3, ['gouge'], -10, 'b', 'Vendas 10% mais caras, mas a lealdade cai um pouco todo dia.', ['Preço de guerra', 'Preço de monopólio', 'Taxa de leilão', 'Prezzo del Don']],
+  [3, 4, ['ordx'], 0, '', 'Mais pedidos com prazo chegam, com 1 dia a mais para entregar.', ['Freguesia fiel', 'Carteira de clientes', 'Convênios', 'Clienti fidati']],
+  [3, 5, ['rentz'], 0, '', '+R$ 40 por zona todo dia em pequenos negócios.', ['Comércio da quebrada', 'Pontos de serviço', 'Parcerias locais', 'Botteghe']],
+  [3, 6, ['laundry'], 8, 'g', 'Lavagem: -1 de pressão por dia e +R$ 20 por zona.', ['Lavanderia de dinheiro', 'Empresas de fachada', 'Prestação de contas', 'Lavanderia']],
+  [3, 6, ['smuggle'], -10, 'b', 'Depósito dobrado e compra 15% mais barata.', ['Rota do contrabando', 'Carga roubada', 'Apreensão desviada', 'Contrabbando']],
+  [3, 7, ['neg'], 0, '', 'Suas contrapropostas são aceitas com mais frequência.', ['Lábia', 'Negociador', 'Mediação', 'Diplomazia']],
+  [3, 8, ['magnata'], 0, '', 'Capstone: negócios e arrecadação rendem 30% mais.', ['Magnata do morro', 'Império da Zona Oeste', 'Gestão modelo', 'Re degli affari']],
+  // ===== Ramo 4: comando =====
+  [4, 1, ['crew'], 0, '', 'Cada recrutamento traz 2 a mais.', ['Bonde crescendo', 'Recrutamento', 'Efetivo extra', 'Nuovi picciotti']],
+  [4, 2, ['upk'], 0, '', 'Salários 20% menores.', ['Folha enxuta', 'Corte de custos', 'Escala otimizada', 'Paga giusta']],
+  [4, 3, ['loyalc'], 10, 'g', 'Ninguém da equipe trai você, e o braço direito confia mais.', ['Sangue no olho', 'Irmandade', 'Espírito de corpo', 'Fratellanza']],
+  [4, 3, ['iron'], -10, 'b', 'Ninguém deserta quando o caixa fica no vermelho. Por medo.', ['Mão de ferro', 'Disciplina militar', 'Regime duro', 'Pugno di ferro']],
+  [4, 4, ['ten'], 0, '', '+1 vaga de tenente.', ['Gerentes de confiança', 'Chefes de área', 'Oficiais', 'Capidecina']],
+  [4, 5, ['act2'], 0, '', '+1 ação por dia.', ['Agenda cheia', 'Comando ágil', 'Estado-maior', 'Consiglio']],
+  [4, 6, ['mentor'], 10, 'g', 'Respeito +20% e a equipe ganha experiência: +10% de força.', ['Formador de cria', 'Escola de liderança', 'Academia', 'Maestro']],
+  [4, 6, ['dread'], -10, 'b', 'Seu nome assusta: +10% de defesa em todas as zonas.', ['Nome temido', 'Fama de cruel', 'Tropa temida', 'Nome che fa paura']],
+  [4, 7, ['def2'], 0, '', '+15% de defesa em todas as zonas.', ['Fortaleza', 'Quartel', 'Batalhão', 'Roccaforte']],
+  [4, 8, ['lenda'], 0, '', 'Capstone: +2 ações por dia, +10% de ataque e de defesa.', ['Lenda do Rio', 'Lenda da milícia', 'Lenda da corporação', 'Leggenda']],
+];
+
+const BR = {
+  faccao: { br: ['Comunidade', 'Guerra', 'Esquema', 'Negócio', 'Comando'], good: 'Cria da comunidade', bad: 'Tirano do morro' },
+  milicia: { br: ['Associação', 'Patrulha', 'Laranjas', 'Monopólio', 'Hierarquia'], good: 'Protetor do bairro', bad: 'Extorsionário' },
+  policia: { br: ['Comunidade', 'Tática', 'Inteligência', 'Gestão', 'Comando'], good: 'Policial exemplar', bad: 'Banda podre' },
+  mafia: { br: ['Famiglia', 'Soldati', 'Omertà', 'Affari', 'Cupola'], good: "Uomo d'onore", bad: 'Il Tiranno' },
 };
+const MI = { faccao: 0, milicia: 1, policia: 2, mafia: 3 };
+
+function build(mode) {
+  const nodes = SLOTS.map(([b, t, fx, al, pk, d, names]) => ({ id: `n${b}${t}${pk}`, b, t, fx, al, n: names[MI[mode]], d, cost: COST[t], min: MIN[t], pk }));
+  nodes.forEach(n => { if (n.pk) n.pair = nodes.find(x => x.b === n.b && x.t === n.t && x.pk && x.pk !== n.pk).id; });
+  return { ...BR[mode], nodes, tiers: 8 };
+}
+export const TREES = Object.fromEntries(Object.keys(BR).map(m => [m, build(m)]));

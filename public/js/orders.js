@@ -1,6 +1,6 @@
 // Pedidos com prazo: clientes encomendam carga (ou o chefe cobra dinheiro) até um dia certo.
 // Você aceita, negocia prazo, corre atrás do estoque e entrega. Atrasar tem consequência.
-import { S, R, RI, pick, clamp, fmt, can, msg, log, addRel, rel, addXP, emit, priceOf, buyPrice, storage, stockTotal, owned, saveGame, addKarma } from './engine.js';
+import { S, R, RI, pick, clamp, fmt, can, msg, log, addRel, rel, addXP, emit, priceOf, buyPrice, storage, stockTotal, owned, saveGame, addKarma, sk, haggleChance, kBad } from './engine.js';
 
 const mode = () => S.G.mode;
 const T = o => o[mode()] || o.default;
@@ -29,7 +29,7 @@ function newOrder() {
     return;
   }
   const gds = S.MD.goods, gd = pick(gds), st = storage();
-  const q = mode() === 'policia' ? Math.round(R(15, 40) / 5) * 5 + (S.G.stock.apreensao || 0) : Math.max(10, Math.round(st * R(.12, .32) / 5) * 5), unit = Math.round(priceOf(gd.id, 2) * R(1.25, 1.6)), due = g.day + RI(3, 5);
+  const q = mode() === 'policia' ? Math.round(R(15, 40) / 5) * 5 + (S.G.stock.apreensao || 0) : Math.max(10, Math.round(st * R(.12, .32) / 5) * 5), unit = Math.round(priceOf(gd.id, 2) * R(1.25, 1.6) * (sk('fair') ? 1.1 : 1)), due = g.day + RI(3, 5) + (sk('ordx') ? 1 : 0);
   const o = { id, d0: g.day, c, good: gd.id, q, unit, due, st: 'offer', ext: 0 };
   g.ord.push(o);
   const what = `${q} ${gd.unit} de ${gd.name.toLowerCase()}`;
@@ -42,15 +42,26 @@ function newOrder() {
   msg(c, txt, [
     { l: 'Fechado, entrego no prazo', k: 'ord', p: { a: 'ok', id } },
     { l: `Fechado, mas quero 30% adiantado`, k: 'ord', p: { a: 'adv', id } },
+    { l: `Contraproposta: ${fmt(Math.round(unit * 1.2))} cada`, k: 'ord', p: { a: 'counter', id } },
     { l: `Só consigo até o dia ${due + 2} (15% a menos)`, k: 'ord', p: { a: 'more', id } },
     { l: 'Não vai dar', k: 'ord', p: { a: 'no', id } },
   ]);
 }
 
 export function orderAnswer(m, o) {
-  const g = S.G, p = o.p || {}, od = (g.ord || []).find(x => x.id === p.id);
+  const g = S.G, p = o.p || {};
+  if (p.a && p.a.startsWith('p_')) return partnerAnswer(p);
+  const od = (g.ord || []).find(x => x.id === p.id);
   if (!od) return 'Deixa pra lá.';
   if (p.a === 'no') { od.st = 'gone'; addRel(od.c, -2); return pick(['Beleza, procuro outro.', 'Tranquilo. Fica pra próxima.', 'Que pena. Vou atrás de outro.']); }
+  if (od.st === 'offer' && p.a === 'counter') {
+    const to = Math.round(od.unit * 1.2);
+    if (Math.random() < haggleChance(od.c)) { od.unit = to; od.st = 'active'; addRel(od.c, -1); return `Você é duro na queda. Fechado: ${fmt(to)} cada, até o dia ${od.due}.`; }
+    addRel(od.c, -3);
+    msg(od.c, pick(['Aí não chego. Fica no meu preço?', 'Nem a pau. É o que eu ofereci ou nada.', 'Tá caro demais. Meu preço é aquele.']),
+      [{ l: `Fechado no seu preço (${fmt(od.unit)} cada)`, k: 'ord', p: { a: 'ok', id: od.id } }, { l: 'Então não', k: 'ord', p: { a: 'no', id: od.id } }]);
+    return null;
+  }
   if (od.st === 'offer') {
     if (p.a === 'more') { od.due += 2; od.unit = Math.round(od.unit * .85); }
     if (p.a === 'adv') { if (rel(od.c) < 35) { od.st = 'active'; return 'Adiantado? Ainda não te conheço tão bem assim. Mas fechado sem adiantamento.'; } od.adv = Math.round(od.q * od.unit * .3); g.money += od.adv; g.extra = (g.extra || 0) + od.adv; }
@@ -125,14 +136,18 @@ export function orderStart() {
     msg(od.c, od.cash ? `Amanhã é o dia. Os ${fmt(od.q)} tão separados?` : `Amanhã é o dia. Tá com os ${od.q} ${goodOf(od.good).unit} aí?`,
       [{ l: ok ? 'Tá garantido' : 'Tá garantido (ainda vou correr atrás)', k: 'ord', p: { a: 'sure', id: od.id } }].concat(od.ext ? [] : [{ l: 'Preciso de mais 2 dias', k: 'ord', p: { a: 'ext', id: od.id } }]));
   }
+  // proposta de parceria
+  if (g.rank >= 3 && owned(0).length >= 2 && !g.pof && (g.part || []).length < 6 && Math.random() < .08) newPartner();
+  else if (g.pof && g.pof.d < g.day) g.pof = null;
   // pedido novo
   const act = orders().length, ban = (g.ordBan || 0) > g.day;
-  if (!ban && g.rank >= 1 && act < 2 && !(g.ord || []).some(o => o.st === 'offer' && o.due > g.day) && Math.random() < (act ? .14 : .3)) newOrder();
+  if (!ban && g.rank >= 1 && act < 2 && !(g.ord || []).some(o => o.st === 'offer' && o.due > g.day) && Math.random() < (act ? .14 : .3) * (sk('ordx') ? 1.5 : 1)) newOrder();
   g.ord = g.ord.filter(o => o.st === 'active' || o.st === 'late' || o.st === 'offer' || o.due >= g.day - 6);
 }
 
 export function orderEnd(rep) {
   const g = S.G;
+  partnerDay(rep);
   for (const od of g.ord || []) {
     if (od.st === 'offer') { od.st = 'gone'; continue; }
     if (od.st === 'late') { rep.push(['bad', `Pedido de ${nm(od.c)} não entregue`, 'cancelado']); msg(od.c, fail(od, false)); continue; }
@@ -151,4 +166,36 @@ function lateMsgs() {
         [{ l: od.cash ? 'Amanhã sem falta' : 'Entrego amanhã (25% de desconto)', k: 'ord', p: { a: 'late1', id: od.id } }, { l: 'Não vai dar, desculpa', k: 'ord', p: { a: 'cancel', id: od.id } }]);
     }
   }
+}
+
+// ---------------- parcerias: grupos de fora que querem operar nas suas áreas ----------------
+const PARTS = {
+  faccao: [['Uns parceiros do Paraguai', 'montar um depósito de carga', 2, 0], ['Um empresário de festas', 'fazer eventos na quadra', 0, 2], ['Uma rede de mototáxi de fora', 'rodar nas suas ruas', 0, -1], ['Uns caras de São Paulo', 'lavar dinheiro num lava-jato', 1, 0]],
+  milicia: [['Uma provedora de internet', 'instalar antenas na área', 0, 0], ['Uma cooperativa de vans', 'rodar nas suas linhas', 0, -1], ['Um grileiro de fora', 'lotear um terreno', 2, -2], ['Uma igreja grande', 'abrir um templo', 0, 2]],
+  policia: [['Uma empresa de segurança privada', 'atuar no comércio da área', 1, -1], ['Uma ONG', 'fazer projetos sociais', 0, 3], ['Uma rede de farmácias', 'patrocinar a base comunitária', 0, 1], ['Um empresário da noite', 'abrir uma casa de shows', 2, 0]],
+  mafia: [['Uma família de Nápoles', 'usar o porto', 2, 0], ['Um empresário de Milão', 'abrir um resort', 0, 1], ['Uns albaneses', 'vender cigarros na área', 2, -1], ['Uma construtora de Roma', 'tocar uma obra pública', 1, 1]],
+};
+export const parts = () => (S.G.part || []).filter(p => S.G.d[p.z] && S.G.d[p.z].o === 0);
+function newPartner() {
+  const g = S.G, z = pick(owned(0)), [who, what, heat, loy] = pick(PARTS[mode()] || PARTS.faccao), v = Math.round(RI(15, 40) * 10 * (1 + g.rank * .1)), id = g.oid = (g.oid || 0) + 1;
+  g.pof = { id, z, who, what, v, heat, loy, d: g.day };
+  msg(mode() === 'policia' ? (can('market') ? 'politico' : 'chefe') : can('market') ? 'comprador' : 'braco',
+    `${who} quer ${what} em ${S.M.z[z].n}. Pagam ${fmt(v)} por dia pra operar lá.${heat > 1 ? ' Vai chamar atenção.' : ''}${loy > 0 ? ' O povo da área deve gostar.' : loy < 0 ? ' O povo da área não vai gostar muito.' : ''}`,
+    [{ l: 'Quero vocês aqui', k: 'ord', p: { a: 'p_ok', id } }, { l: `Quero, mas pagando ${fmt(Math.round(v * 1.3))}`, k: 'ord', p: { a: 'p_counter', id } }, { l: 'Não quero vocês aqui', k: 'ord', p: { a: 'p_no', id } }]);
+}
+export function partnerAnswer(p) {
+  const g = S.G, o = g.pof; if (!o || o.id !== p.id) return 'Essa proposta já passou.';
+  if (p.a === 'p_no') { g.pof = null; if (o.heat > 1) addKarma(1); return 'Entendido. Vamos procurar outro lugar.'; }
+  if (p.a === 'p_counter') { if (Math.random() < haggleChance('comprador') - .05) o.v = Math.round(o.v * 1.3); else { msg('braco', `${o.who} recusou pagar mais. Ficam no valor de ${fmt(o.v)} ou vão embora.`, [{ l: 'Fica nos ' + fmt(o.v), k: 'ord', p: { a: 'p_ok', id: o.id } }, { l: 'Então vão embora', k: 'ord', p: { a: 'p_no', id: o.id } }]); return null; } }
+  g.part = (g.part || []).concat([{ z: o.z, who: o.who, what: o.what, v: o.v, heat: o.heat, loy: o.loy, from: g.day }]); g.pof = null; addXP(30);
+  return `Fechado. ${fmt(o.v)} por dia em ${S.M.z[o.z].n}.`;
+}
+export function expel(k) { const g = S.G, L = parts(); const p = L[k]; if (!p) return; g.part = g.part.filter(x => x !== p); log(`${p.who} foi expulso de ${S.M.z[p.z].n}.`); emit('toast', 'Parceria encerrada', `${p.who} saiu de ${S.M.z[p.z].n}.`, 'good'); saveGame(); emit('change'); }
+export function partnerDay(rep) {
+  const g = S.G; g.part = parts(); let tot = 0;
+  for (const p of g.part) {
+    tot += p.v; g.heat = Math.min(100, g.heat + p.heat * .5); g.d[p.z].l = clamp(g.d[p.z].l + p.loy * .5, 0, 100);
+    if (Math.random() < .04) { g.heat = Math.min(100, g.heat + 8); log(`${p.who} arrumou confusão em ${S.M.z[p.z].n}. A pressão subiu.`, 'bad'); }
+  }
+  if (tot) { g.money += tot; g.extra = (g.extra || 0) + tot; rep.push(['good', `Parcerias (${g.part.length})`, '+' + fmt(tot)]); }
 }
