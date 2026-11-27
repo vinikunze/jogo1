@@ -354,3 +354,4 @@ button.link{background:none;border:0;color:var(--mu);font:inherit;font-size:12px
 .views .leg-t{display:none}
 @media (max-width:760px){.legend2{display:none}.legend2.open{display:flex}.views .leg-t{display:inline-block;min-width:34px}}
 @media (min-width:761px){body.ph-open #res{left:24px;transform:translate(0,-14px)}body.ph-open #res.on{transform:translate(0,0)}}
+@media (max-width:760px){body.ph-open #res{top:auto;bottom:24px;transform:translate(-50%,14px)}body.ph-open #res.on{transform:translate(-50%,0)}#dlg .row .gold,#dlg .row .ghost{font-size:15px;padding:10px 12px}}

@@ -100,7 +100,7 @@ function renderHUD() {
   const hud = $('#hud'); hud.style.setProperty('--pc', S.MD.color);
   hud.innerHTML = `<div class="brand">${I.emb}<div><b>${esc(g.pname)}</b><small>${ph ? `${S.MD.name} · ${esc(S.MD.city)}` : `${esc(g.nick)} · ${esc(rankName())} <span class="xp" title="${g.xp} de experiência"><i style="width:${pct}%"></i></span>`}</small></div></div>
   <div class="stats">${ph ? '' : `<div class="stat"><small>Dia</small><strong>${g.day}</strong></div>
-  <div class="stat" data-app-open="fin" style="cursor:pointer" title="Abrir finanças"><small>Caixa${g.lastPL ? ' · lucro ontem' : ''}</small><strong>${fmt(g.money)} ${g.lastPL ? `<em style="color:${g.lastPL.luc >= 0 ? 'var(--ok)' : 'var(--bad)'}">${g.lastPL.luc >= 0 ? '▲ +' : '▼ '}${fmt(g.lastPL.luc)}</em>` : `<em style="color:${net >= 0 ? 'var(--ok)' : 'var(--bad)'}">${net >= 0 ? '+' : ''}${fmt(net)}</em>`}</strong></div>
+  <div class="stat" data-app-open="fin" style="cursor:pointer" title="Abrir finanças"><small>Caixa${g.lastPL ? ' · lucro ontem' : ' · previsto por dia'}</small><strong>${fmt(g.money)} ${g.lastPL ? `<em style="color:${g.lastPL.luc >= 0 ? 'var(--ok)' : 'var(--bad)'}">${g.lastPL.luc >= 0 ? '▲ +' : '▼ '}${fmt(g.lastPL.luc)}</em>` : `<em style="color:${net >= 0 ? 'var(--ok)' : 'var(--bad)'}">${net >= 0 ? '+' : ''}${fmt(net)}</em>`}</strong></div>
   <div class="stat"><small>Tropa · base</small><strong>${pTroops()} · ${g.reserve}</strong></div>
   <div class="stat"><small>Fuzis · pistolas</small><strong>${g.rif} · ${g.pis}</strong></div>
   <div class="stat"><small>${S.MD.heat}</small><div class="bar"><i style="width:${g.heat}%;background:${hc}"></i></div></div>
