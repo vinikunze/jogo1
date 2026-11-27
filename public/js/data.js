@@ -12,6 +12,9 @@ export const ZT = {
   citta:      { label: 'Cidade', slots: 5, com: 1.1, inc: 420, def: 1.2, gar: [7, 10], cap: 40, loy: 50 },
   costa:      { label: 'Litoral', slots: 5, com: 1.0, inc: 380, def: 1.05, gar: [5, 8], cap: 55, loy: 50 },
   campagna:   { label: 'Interior', slots: 4, com: 0.65, inc: 240, def: 1.0, gar: [3, 6], cap: 20, loy: 60 },
+  metropole:  { label: 'Metrópole', slots: 7, com: 1.6, inc: 750, def: 1.4, gar: [12, 16], cap: 70, loy: 40 },
+  selva:      { label: 'Selva', slots: 5, com: 0.7, inc: 320, def: 1.3, gar: [5, 8], cap: 30, loy: 60 },
+  interior:   { label: 'Interior', slots: 4, com: 0.8, inc: 280, def: 1.0, gar: [4, 7], cap: 25, loy: 55 },
 };
 
 export const BCAT = { neg: 'Negócios', srv: 'Serviços para o morador', mor: 'Para o povo', def: 'Defesa', apo: 'Apoio' };
@@ -165,7 +168,7 @@ export const MODES = {
     rivals: [{ name: 'Tropa do Trilho', color: '#e5484d', pool: 'comunidade' }, { name: 'Bonde da Serra', color: '#a855f7', pool: 'comunidade' }, { name: 'Milícia do Asfalto', color: '#22a06b', pool: 'periferia' }, { name: 'Comando do Morro Alto', color: '#eab308', pool: 'comunidade' }, { name: 'Patrulha Oeste', color: '#e07b39', pool: 'periferia' }],
   },
   mafia: {
-    name: 'Máfia', map: 'sicilia', city: 'Sicília', color: '#c2185b', player: 'Famiglia Rubino',
+    name: 'Máfia', map: 'sicilia', city: 'Sicília', color: '#c2185b', player: 'Famiglia Rubino', cur: '€',
     blurb: 'Comece como associado ou já como capo. Cidade por cidade até a Capital, com a Antimáfia na cola.',
     feats: ['Sicília inteira, 50 zonas', '12 cargos, até Capo dei capi', 'Cassinos e contrabando', 'Famílias rivais'],
     ranks: ['Associado', 'Picciotto', 'Soldato', 'Capodecina', 'Consigliere', 'Don'],
@@ -201,11 +204,49 @@ export const MODES = {
     ],
     rivals: [{ name: 'Famiglia Varone', color: '#2f80ed', pool: 'citta' }, { name: 'Famiglia Lo Cascio', color: '#1fa38a', pool: 'citta' }, { name: 'Famiglia Randazzo', color: '#e07b39', pool: 'campagna' }, { name: 'Famiglia Catalano', color: '#eab308', pool: 'citta' }, { name: 'Clan dei Pastori', color: '#8b5cf6', pool: 'campagna' }],
   },
+  cartel: {
+    name: 'Cartel', map: 'sulamerica', city: 'América do Sul', color: '#e07b39', player: 'Cartel del Sol', cur: 'US$',
+    blurb: 'Da selva aos portos do Pacífico e do Atlântico: rotas, laboratórios e fronteiras de um continente inteiro.',
+    feats: ['América do Sul, 61 zonas', '12 cargos, de mula a patrón', 'Rotas e fronteiras', '5 cartéis rivais'],
+    ranks: ['Mula', 'Sicário', 'Lugarteniente', 'Jefe de plaza', 'Jefe regional', 'Patrón'],
+    titles: ['Mula', 'Halcón', 'Sicário', 'Puntero', 'Lugarteniente', 'Jefe de célula', 'Jefe de plaza', 'Jefe de ruta', 'Jefe regional', 'Socio del cartel', 'Patrón', 'Patrón de patrones'],
+    starts: [[0, 'Mula', 'Leva a carga de um lado para o outro. Ninguém sabe o seu nome.'], [2, 'Lugarteniente', 'Comanda uma célula e responde ao patrão.'], [4, 'Jefe regional', 'Controla rotas e negocia com os grandes.']],
+    startPool: t => t === 'selva' || t === 'interior', startTxt: 'Escolha onde o cartel nasce.',
+    inc: { metropole: 1.2, porto: 1.3 }, unit: 'sicários', u1: 'sicário', heat: 'DEA', heatAtk: 7,
+    bribe: 'Comprar um general', raid: 'Operação da DEA', big: 'Pedido de extradição dos EUA', attackVerb: 'Tomar a rota', you: 'Patrón',
+    recruit: ['Contratar sicários', '10 homens armados da região'],
+    luck: ['Um avião passou sem ser visto', 'Uma carga chegou inteira no porto', 'Um político devolveu um favor'],
+    join: 'Ex-militares da fronteira chegaram', traitor: 'Um informante da DEA estava em',
+    words: { load: 'a carga', cops: 'a DEA', money: 'os dólares', hood: 'a região', team: 'os muchachos' },
+    contacts: [C('chefe', 'El Viejo', 'O patrão', 0, 4), C('braco', 'Chato', 'Braço direito', 2), C('olheiro', 'Halcón', 'Olhos na estrada', 0), C('morador', 'Doña Rosa', 'Líder da vila', 3),
+      C('advogado', 'Licenciado Ortega', 'Advogado', 3), C('fornecedor', 'El Químico', 'Laboratório', 4), C('comprador', 'Mr. Collins', 'Comprador do norte', 4), C('politico', 'General Barros', 'Militar comprado', 4)],
+    goods: [
+      { id: 'carga', name: 'Carga bruta', unit: 'kg', buy: 18, ref: 45, dem: 1.4, pref: { selva: .8, interior: 1, porto: 1.2, metropole: 1.3 } },
+      { id: 'pura', name: 'Carga refinada', unit: 'kg', buy: 90, ref: 210, dem: .35, pref: { porto: 1.8, metropole: 1.6, interior: .9, selva: .5 } },
+      { id: 'ouro', name: 'Ouro de garimpo', unit: 'g', buy: 55, ref: 120, dem: .6, pref: { metropole: 1.4, porto: 1.3, selva: 1.1, interior: .9 } },
+    ], shop: 'pontos', shopIn: 'nos pontos',
+    builds: [
+      { id: 'laboratorio', cat: 'neg', name: 'Laboratório na selva', desc: '+R$ 380 por dia, +1 de pressão', cost: 2400, eff: { inc: 380, heat: 1 } },
+      { id: 'pista', cat: 'neg', name: 'Pista de pouso clandestina', desc: '+60% de vendas e +R$ 100 por dia', cost: 1800, eff: { dem: .6, inc: 100 } },
+      { id: 'fazenda', cat: 'neg', name: 'Fazenda de fachada', desc: '+R$ 160 por dia e lava o dinheiro (-1 de pressão)', cost: 1500, eff: { inc: 160, heat: -1 } },
+      { id: 'galpao', cat: 'neg', name: 'Galpão no porto', desc: '+200 de depósito e +40% de vendas', cost: 1600, eff: { stor: 200, dem: .4 } },
+      { id: 'garimpo', cat: 'neg', name: 'Garimpo', desc: '+R$ 300 por dia, +1 de pressão', cost: 2200, eff: { inc: 300, heat: 1 } },
+      { id: 'pedagio', cat: 'srv', name: 'Pedágio na estrada', desc: 'Cobrado de cada caminhão que passa', cost: 1000, eff: { srv: 220, loy: -1 } },
+      { id: 'barcos', cat: 'srv', name: 'Barcos pelo rio', desc: 'Transporte de gente e mercadoria', cost: 1300, eff: { srv: 180 } },
+      { id: 'prestamo', cat: 'srv', name: 'Agiotagem', desc: 'Empréstimo com juros para os comerciantes', cost: 1200, eff: { srv: 170 } },
+      { id: 'escola', cat: 'mor', name: 'Escola na vila', desc: '+4 lealdade por dia', cost: 1700, eff: { loy: 4 } },
+      { id: 'posto', cat: 'mor', name: 'Posto de saúde', desc: '+3 lealdade e recrutar fica 5% mais barato', cost: 1500, eff: { loy: 3, rec: .05 } },
+      { id: 'futebol', cat: 'mor', name: 'Campo e festa do povoado', desc: '+5 lealdade por dia', cost: 2000, eff: { loy: 5 } },
+      { id: 'acampamento', cat: 'def', name: 'Acampamento armado', desc: '+35% de defesa', cost: 1500, eff: { def: .35 } },
+      { id: 'radio', cat: 'apo', name: 'Rede de rádio e drones', desc: 'Vê os vizinhos, avisa ataque, +10% de defesa', cost: 1200, eff: { intel: 1, def: .1 } },
+    ],
+    rivals: [{ name: 'Cartel del Pacífico Sur', color: '#1fa38a', pool: 'porto' }, { name: 'Los Andinos', color: '#8b5cf6', pool: 'interior' }, { name: 'Comando da Tríplice', color: '#eab308', pool: 'selva' }, { name: 'Clan de las Bahías', color: '#2f80ed', pool: 'porto' }, { name: 'La Empresa Roja', color: '#e5484d', pool: 'metropole' }],
+  },
 };
 
 export const SOON = [
-  { name: 'Cartel', city: 'Sinaloa, México', color: '#e07b39', blurb: 'Rotas, plantações e a fronteira.' },
   { name: 'Yakuza', city: 'Tóquio, Japão', color: '#a855f7', blurb: 'Clãs, cassinos e o porto.' },
+  { name: 'Bratva', city: 'Leste Europeu', color: '#2f80ed', blurb: 'Portos do Báltico, armas e oligarcas.' },
 ];
 
 export const ACH = [
@@ -226,6 +267,13 @@ export const ACH = [
 // Reta final de cada modo: ao chegar em 40% do mapa os rivais se unem contra você.
 // Segure 35% e a sua base até o fim do cerco para quebrar a aliança. A vitória final é dominar a cidade inteira.
 export const FINALS = {
+  cartel: {
+    name: 'La guerra del continente', from: 'braco',
+    start: 'Patrón, os outros cartéis se juntaram contra nós e a DEA mandou reforço de fora. Se a gente segurar essa semana, as rotas do continente são nossas.',
+    opts: [['def', 'Fechar as rotas e reforçar as bases', 4000], ['pol', 'Comprar generais e juízes', 5000], ['atk', 'Trazer ex-militares de fora', 3000]],
+    win: 'A aliança dos cartéis rachou e a DEA voltou de mãos vazias. Agora é tomar o resto do continente, rota por rota.', title: 'Patrón de patrones',
+    epi: 'Da selva aos portos, nenhuma carga atravessa o continente sem a sua bênção. Os outros cartéis trabalham para você ou sumiram do mapa.',
+  },
   faccao: {
     name: 'A guerra pelo Rio', from: 'braco',
     start: 'Chefe, deu ruim. Os outros comandos fecharam aliança contra a gente e o governo prometeu ocupar as nossas comunidades. Se a gente segurar essa semana, o Rio é nosso.',

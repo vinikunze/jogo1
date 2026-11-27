@@ -23,7 +23,7 @@ const NAMES = ['Biel', 'Cabeça', 'Marcão', 'Tuca', 'Neném', 'Russo', 'Gordinh
 const NAMES_IT = ['Totò', 'Nino', 'Pippo', 'Saro', 'Turi', 'Ciccio', 'Mimmo', 'Enzo'];
 const NAMES_PM = ['Cabo Souza', 'Soldado Reis', 'Cabo Vidal', 'Soldado Nunes', 'Cabo Prado', 'Soldado Melo'];
 const pickNames = n => { const L = mode() === 'mafia' ? NAMES_IT : mode() === 'policia' ? NAMES_PM : NAMES; return [...L].sort(() => Math.random() - .5).slice(0, n); };
-const T = obj => obj[mode()] || obj.default;
+const T = obj => obj[mode()] || obj.default || obj.faccao;
 
 // ---------------- histórias ----------------
 // ---------------- histórias em cadeia ----------------
@@ -266,6 +266,7 @@ const STORIES = [
           milicia: `Alguém tá passando as nossas rotas para ${rivalName(d.r)}. Tem informante aqui dentro.`,
           policia: `As operações estão vazando. Alguém da equipe passa informação para ${rivalName(d.r)}.`,
           mafia: `C'è una talpa. ${rivalName(d.r)} sabe de tudo que a família planeja.`,
+          cartel: `Tem um soplón entre nós. ${rivalName(d.r)} sabe de cada carga antes dela sair.`,
         }),
         opts: d => [
           { l: `Investigar (${fmt(500)})`, fx(g) { if (g.money < 500) return { say: 'Sem dinheiro não dá pra investigar.', end: 1 }; g.money -= 500; return { say: 'Vou ficar de olho. Amanhã te passo os nomes.', next: 'b', delay: 1 }; } },
@@ -312,6 +313,7 @@ const STORIES = [
           milicia: 'Meu filho vai casar. Preciso de alguém de confiança cuidando da festa e da segurança.',
           policia: 'Vai ter a cerimônia de troca de comando. Preciso de alguém cuidando da organização e da segurança.',
           mafia: 'Mia figlia si sposa. Voglio una festa che la Sicilia non dimentica. Conto com você.',
+          cartel: 'Minha filha faz quinze anos. Quero banda, cavalos e o povoado inteiro na festa. Você organiza?',
         }),
         opts: () => [
           { l: `Deixa comigo, faço tudo (${fmt(2500)})`, fx(g) { if (g.money < 2500) return { say: 'Pelo visto o caixa não aguenta. Ajuda com o que der então.', next: 'a', delay: 0 }; g.money -= 2500; addRel('chefe', 15); addXP(60); return { say: 'É disso que eu gosto. Não vou esquecer.', next: 'b', delay: 1 }; } },
@@ -341,6 +343,7 @@ const STORIES = [
           faccao: `Um ${W().cops === 'os homens' ? 'policial' : 'agente'} me procurou. Quer ${fmt(1500)} por semana pra não incomodar as bancas.`,
           milicia: `Um delegado mandou recado: ${fmt(1500)} por semana e a investigação anda devagar.`,
           mafia: `Un maresciallo dei Carabinieri vuole ${fmt(1500)} a settimana. Em troca, faz vista grossa.`,
+          cartel: `Um coronel do exército quer ${fmt(1500)} por semana. Em troca, os comboios não param nas estradas.`,
         }),
         opts: () => [
           { l: `Pagar ${fmt(1500)} por semana`, fx(g) { g.arrego = { from: g.day, until: g.day + 21 }; return { say: 'Combinado. Toda semana sai do caixa.', end: 1 }; } },
@@ -418,6 +421,7 @@ const STORIES = [
           faccao: `Tem uma carga grande chegando. Investe ${fmt(5000)} e volta o triplo em 3 dias. Mas o caminho tá quente.`,
           milicia: `Lote grande de botijão e equipamento de sinal. Investe ${fmt(5000)}, volta o triplo em 3 dias. Estrada tá com fiscalização.`,
           mafia: `Un carico grosso arriva al porto. ${fmt(5000)} adesso, il triplo in tre giorni. Ma i Carabinieri sono in giro.`,
+          cartel: `Tem uma avioneta carregada esperando na pista. ${fmt(5000)} agora e volta o triplo em 3 dias. Mas a DEA está de olho no céu.`,
         }),
         opts: () => [
           { l: `Investir e mandar escolta de 10`, fx(g, d) { if (g.money < 5000) return { say: 'Sem os 5 mil não tem conversa.', end: 1 }; const n = can('crew') ? Math.min(10, g.reserve) : 0; if (can('crew') && n < 10) return { say: 'Você não tem 10 livres pra escolta. Vai sem?', next: 'a', delay: 0 }; g.money -= 5000; if (can('crew')) g.reserve -= n; d.esc = n; d.risk = .2; return { say: 'Escolta na estrada. Em 3 dias a gente vê.', next: 'b', delay: 3 }; } },
@@ -469,7 +473,7 @@ const STORIES = [
   },
   {
     id: 'veterano', min: 2, weight: 1, once: 1,
-    init(d) { d.n = T({ faccao: 'Tio Sombra', milicia: 'Sargento Ferro', policia: 'Major Raio', mafia: 'Zio Turi' }); return !S.G.perk?.vet; },
+    init(d) { d.n = T({ faccao: 'Tio Sombra', milicia: 'Sargento Ferro', policia: 'Major Raio', mafia: 'Zio Turi', cartel: 'El Coronel' }); return !S.G.perk?.vet; },
     steps: {
       a: {
         from: () => boss(),
@@ -478,6 +482,7 @@ const STORIES = [
           milicia: `O ${d.n}, ex-instrutor de tiro, quer entrar na patrulha. Caro, mas sabe o que faz.`,
           policia: `O ${d.n}, instrutor das operações especiais, aceitou vir pra equipe se a verba sair.`,
           mafia: `${d.n} vuole lavorare per la famiglia. Um homem de respeito na Sicília inteira.`,
+          cartel: `${d.n}, ex-oficial das forças especiais, quer trabalhar para o cartel. Cobra caro, mas treina qualquer um.`,
         }),
         opts: d => [
           { l: `Contratar (${fmt(4000)})`, fx(g) { if (g.money < 4000) return { say: 'Volta quando tiver o dinheiro.', end: 1 }; g.money -= 4000; g.perk = { ...(g.perk || {}), vet: 1 }; g.reserve += 5; addXP(40); log(`${d.n} entrou para ${g.pname}: +10% de força em todo ataque.`, 'good'); return { say: `${d.n} chegou com mais 5 de confiança. A tropa toda bate mais forte agora.`, end: 1 }; } },
@@ -828,6 +833,15 @@ function relationTick(rep) {
 
 // ---------------- grupo da firma (conversa da equipe) ----------------
 const GT = {
+  cartel: {
+    win: ['Tomamos {z}. Agora a rota é nossa.', 'Os muchachos limparam {z}. Ninguém mais passa sem pagar.', '{z} é do {p} agora.'],
+    lost: ['Perdemos {z}. Fecharam a nossa rota.', 'Tivemos que sair de {z}. Muita gente deles.'],
+    raid: ['DEA em {z}. Queimaram o laboratório.', 'Exército na estrada de {z}. Ninguém se mexe.', 'Helicóptero rodando {z} desde cedo.'],
+    good: ['A avioneta chegou inteira.', 'Dia bom: carga entregue no porto.', 'Os dólares chegaram certinho.'],
+    bad: ['Carga presa na alfândega.', 'Estrada fechada pela chuva, nada passou.', 'Comprador do norte atrasou o pagamento.'],
+    idle: ['Buenos días, muchachos. Rádio ligado.', 'Plantão da pista sem novidade.', 'Alguém traz gasolina pro gerador?', 'O {n} foi pra cidade e não voltou ainda.', 'Choveu a noite toda, a estrada virou lama.', 'Festa no povoado sábado. Ninguém falta.'],
+    jail: ['Prenderam o patrão. Silêncio total.', 'Licenciado Ortega já está cuidando de tudo.'],
+  },
   faccao: {
     win: ['Tomamo {z}! Agora é nosso.', 'O bonde passou em {z}, não sobrou ninguém deles lá.', '{z} é da {p} agora. Respeita.', 'Contenção montada em {z}. Tá tudo nosso.'],
     lost: ['Perdemo {z}... os cara entraram pesado.', 'Tem que retomar {z} urgente.', 'Vacilaram na contenção de {z}.', 'Geral recuou de {z}. Tô bolado.'],
@@ -866,8 +880,8 @@ const GT = {
   },
 };
 const GK = {
-  good: { faccao: ['O povo da {z} mandou agradecer pela ajuda.', 'Criançada da {z} jogando bola na quadra nova.'], milicia: ['Morador da {z} trouxe café pra patrulha.', 'Associação de {z} elogiou o preço do gás.'], policia: ['Comunidade de {z} aplaudiu a equipe na ronda.', 'Diretora da escola de {z} mandou carta de agradecimento.'], mafia: ['Il prete de {z} rezou pela família na missa.', 'As senhoras de {z} mandaram cannoli para os rapazes.'] },
-  bad: { faccao: ['Morador da {z} nem olha mais na cara da gente. Tão com medo.', 'Fecharam o comércio cedo em {z}. Clima pesado.'], milicia: ['Família de {z} se mudou de madrugada. Medo da taxa.', 'Morador de {z} gravou a patrulha. Cuidado.'], policia: ['Corregedoria perguntando sobre o dinheiro de {z}.', 'Morador de {z} filmou a abordagem. Vai dar problema.'], mafia: ['Em {z} ninguém fala mais com a gente na rua.', 'O padre de {z} recusou a doação.'] },
+  good: { cartel: ['O povo de {z} rezou pelo patrão na missa.', 'As crianças de {z} estrearam a escola nova.'], faccao: ['O povo da {z} mandou agradecer pela ajuda.', 'Criançada da {z} jogando bola na quadra nova.'], milicia: ['Morador da {z} trouxe café pra patrulha.', 'Associação de {z} elogiou o preço do gás.'], policia: ['Comunidade de {z} aplaudiu a equipe na ronda.', 'Diretora da escola de {z} mandou carta de agradecimento.'], mafia: ['Il prete de {z} rezou pela família na missa.', 'As senhoras de {z} mandaram cannoli para os rapazes.'] },
+  bad: { cartel: ['Em {z} ninguém sai de casa depois que escurece.', 'O padre de {z} falou contra nós na missa.'], faccao: ['Morador da {z} nem olha mais na cara da gente. Tão com medo.', 'Fecharam o comércio cedo em {z}. Clima pesado.'], milicia: ['Família de {z} se mudou de madrugada. Medo da taxa.', 'Morador de {z} gravou a patrulha. Cuidado.'], policia: ['Corregedoria perguntando sobre o dinheiro de {z}.', 'Morador de {z} filmou a abordagem. Vai dar problema.'], mafia: ['Em {z} ninguém fala mais com a gente na rua.', 'O padre de {z} recusou a doação.'] },
 };
 function gsay(kind, z) {
   const g = S.G; if (g.rank < 1) return;

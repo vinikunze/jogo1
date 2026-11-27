@@ -17,7 +17,9 @@ export function face(o) {
   // roupa
   let shirt = ['#2f6fb2', '#c2433b', '#2b2b2b', '#e9e9e9', '#3d8f4f', '#d7a21f'][r(6) % 6], collar = '', extra = '';
   if (m === 'policia' && !['morador', 'politico', 'comprador', 'advogado'].includes(id)) { shirt = '#1f2f4d'; collar = '<path d="M16 30l4 4 4-4" fill="none" stroke="#c9b26b" stroke-width="1.2"/>'; }
-  if (m === 'mafia' || ['advogado', 'politico'].includes(id)) { shirt = '#1a1a1d'; collar = '<path d="M17 29l3 6 3-6z" fill="#f2f2f2"/><path d="M19.4 31h1.2l.6 6h-2.4z" fill="' + (m === 'mafia' ? '#7a1020' : '#24508f') + '"/>'; }
+  if (m === 'cartel' && ['chefe', 'braco', 'olheiro', 'fornecedor'].includes(id)) shirt = ['#7a1f2a', '#1f4f7a', '#e9e2d0', '#2f5f3a'][r(14) % 4];
+  if (m === 'cartel' && id === 'politico') shirt = '#3b4a2a';
+  else if (m === 'mafia' || ['advogado', 'politico'].includes(id)) { shirt = '#1a1a1d'; collar = '<path d="M17 29l3 6 3-6z" fill="#f2f2f2"/><path d="M19.4 31h1.2l.6 6h-2.4z" fill="' + (m === 'mafia' ? '#7a1020' : '#24508f') + '"/>'; }
   if (m === 'milicia' && ['chefe', 'braco', 'olheiro'].includes(id)) { shirt = '#20241f'; extra = '<rect x="13" y="32" width="14" height="6" rx="1" fill="#2f3a2a"/>'; }
   if (m === 'faccao' && ['braco', 'olheiro', 'chefe'].includes(id) || o.crew) extra += '<path d="M15 30q5 5 10 0" fill="none" stroke="#e3c04f" stroke-width="1.3"/>';
   // cabelo / chapéu
@@ -32,6 +34,7 @@ export function face(o) {
   if (m === 'policia' && !['morador', 'politico', 'comprador', 'advogado', 'olheiro'].includes(id) && !fem) hat = '<path d="M11 13.5q9-7 18 0v2H11z" fill="#14203a"/><rect x="10" y="14.6" width="20" height="2" rx="1" fill="#0d1526"/><circle cx="20" cy="11.8" r="1.4" fill="#d9b44a"/>';
   else if (m === 'faccao' && !older && !fem && r(8) % 2) hat = `<path d="M12 14q8-8 16 0v1.5H12z" fill="${['#c2433b', '#1f1f1f', '#2f6fb2', '#e9e9e9'][r(9) % 4]}"/><path d="M27 14.6h5.5q-.5 1.4-5.5 1.4z" fill="#111"/>`;
   else if (m === 'milicia' && ['chefe', 'braco'].includes(id)) hat = '<path d="M12 14q8-8 16 0v1.5H12z" fill="#262a24"/><path d="M12 14.6H6.5q.5 1.4 5.5 1.4z" fill="#1a1d18"/>';
+  else if (m === 'cartel' && ['chefe', 'braco', 'fornecedor', 'politico'].includes(id) && !fem) hat = id === 'politico' ? '<path d="M11 13.5q9-7 18 0v2H11z" fill="#3b4a2a"/><rect x="10" y="14.6" width="20" height="2" rx="1" fill="#2a3520"/><circle cx="20" cy="11.8" r="1.3" fill="#d9b44a"/>' : '<path d="M6 15.4q14 3.2 28 0q-1.5 1.8-14 2.2T6 15.4z" fill="#c9a66b"/><path d="M13 15.2q0-7.6 7-7.6t7 7.6q-7 1.4-14 0z" fill="#d8b67a"/><path d="M13.2 13.6q6.8 1.2 13.6 0" stroke="#6b4a2b" stroke-width="1.2" fill="none"/>';
   else if (m === 'mafia' && ['chefe', 'braco', 'fornecedor'].includes(id) && !fem) hat = '<path d="M9 15.2h22q-1 1.4-11 1.4T9 15.2z" fill="#121214"/><path d="M13 15q0-7 7-7t7 7z" fill="#1d1d21"/><rect x="13" y="12.6" width="14" height="1.6" fill="#5a1a22"/>';
   // rosto
   const eyes = `<circle cx="17.2" cy="18.6" r=".95" fill="#1a1410"/><circle cx="22.8" cy="18.6" r=".95" fill="#1a1410"/>`;

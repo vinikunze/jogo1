@@ -5,9 +5,17 @@ export const MAST = {
   faccao: { name: 'Rádio Comunidade FM', sub: '98,7 · a voz do morro', app: 'Rádio', kind: 'radio' },
   milicia: { name: 'Rádio da Associação', sub: 'informes da Zona Oeste', app: 'Rádio', kind: 'radio' },
   policia: { name: 'COPOM · Rede rádio', sub: 'ocorrências e imprensa', app: 'COPOM', kind: 'copom' },
+  cartel: { name: 'Radio Frontera', sub: 'noticias del continente', app: 'Radio', kind: 'radio' },
   mafia: { name: 'Giornale di Sicilia', sub: 'cronaca di Palermo', app: 'Giornale', kind: 'paper' },
 };
 const H = {
+  cartel: {
+    pwin: ['Rota em {z} mudou de dono. Caminhoneiros pagam pedágio novo desde hoje.', 'Tiroteio de madrugada em {z}: o {p} assumiu a região.', 'Moradores de {z} dizem que agora quem manda é outro patrão.'],
+    rwin: ['Guerra de cartéis em {z}: {r} assumiu a rota.', 'Pistas clandestinas em {z} trocaram de mãos.'],
+    plost: ['{z} escapou das mãos do {p}. A rota está fechada.'],
+    raid: ['Operação conjunta com a DEA em {z}: laboratório destruído.', 'Helicópteros do exército sobrevoam {z} desde cedo.'],
+    fill: ['Chuva forte fecha a estrada da serra.', 'Seleção vence o clássico do continente.', 'Preço do ouro bate recorde.', 'Festa do padroeiro reúne o povoado.', 'Fronteira com fila de caminhões há três dias.', 'Rio sobe dois metros na época das chuvas.'],
+  },
   faccao: {
     pwin: ['Atenção, comunidade: {z} agora está sob nova administração. Comércio funcionando normal.', 'Fogos na madrugada em {z}. Moradores contam que o comando mudou.', '{z} amanheceu com a bandeira da {p}. Rádio pede calma.'],
     rwin: ['Confronto em {z}: {r} assumiu a área. Evitem circular à noite.', 'Moradores de {z} acordaram com tiroteio. A área mudou de mãos.'],

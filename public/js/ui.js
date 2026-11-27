@@ -13,7 +13,7 @@ import { face } from './faces.js';
 import { MAST } from './news.js';
 
 const $ = s => document.querySelector(s);
-const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const esc = s => { let t = String(s); if (S.MD && S.MD.cur) t = t.replace(/R\$/g, S.MD.cur); return t.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); };
 const mob = () => innerWidth <= 760;
 S.hooks = { dayStart: ST.dayStart, dayEnd: ST.dayEnd, storyAnswer: ST.storyAnswer, win: i => { ST.groupWin(i); setTimeout(() => sfx.conq(), 350); }, orderAnswer: OR.orderAnswer };
 let tab = 'z', phone = { open: false, app: 'home', chat: null }, setup = { rank: 0, nick: '' }, batching = false, newMsgs = 0;

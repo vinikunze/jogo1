@@ -37,6 +37,7 @@ function newOrder() {
     faccao: pick([`Tenho cliente grande da Zona Sul. Preciso de ${what} até o dia ${due}. Pago ${fmt(unit)} cada, bem acima da banca.`, `Vai ter evento grande no fim de semana. Me arruma ${what} até o dia ${due}? Pago ${fmt(unit)} cada.`, `Uns parceiros de São Paulo querem ${what}. Prazo: dia ${due}. ${fmt(unit)} a unidade.`]),
     milicia: pick([`Uma construtora quer ${what} para o canteiro até o dia ${due}. Pagam ${fmt(unit)} cada.`, `Condomínio novo fechou com a gente: ${what} até o dia ${due}, a ${fmt(unit)} cada.`, `Tenho um comerciante grande querendo ${what} até o dia ${due}. ${fmt(unit)} cada.`]),
     policia: pick([`A Secretaria quer ${q} lotes de material apreendido no leilão oficial até o dia ${due}. Pagam ${fmt(unit)} por lote.`, `Leilão especial da Receita: ${q} lotes até o dia ${due}, a ${fmt(unit)} cada. É bom para a imagem da unidade.`]),
+    cartel: pick([`Mr. Collins quer ${what} até o dia ${due}. Paga ${fmt(unit)} cada, em dólar.`, `Um barco sai para a Europa no dia ${due}. Precisam de ${what}, a ${fmt(unit)} cada.`, `Os mexicanos querem ${what} até o dia ${due}. ${fmt(unit)} a unidade.`]),
     mafia: pick([`Un cliente di Napoli quer ${what} até o dia ${due}. Paga ${fmt(unit)} cada.`, `Tem um navio saindo para Marselha. Precisam de ${what} até o dia ${due}, a ${fmt(unit)} cada.`, `Os amigos de Nova York querem ${what}. Prazo: dia ${due}. ${fmt(unit)} cada.`]),
   });
   msg(c, txt, [
@@ -170,6 +171,7 @@ function lateMsgs() {
 
 // ---------------- parcerias: grupos de fora que querem operar nas suas áreas ----------------
 const PARTS = {
+  cartel: [['Uns gringos do norte', 'usar uma pista de pouso', 2, 0], ['Uma mineradora estrangeira', 'abrir um garimpo legal', 1, -1], ['Uma cooperativa de pescadores', 'usar o porto à noite', 1, 1], ['Um político da capital', 'fazer campanha com proteção', 0, 1]],
   faccao: [['Uns parceiros do Paraguai', 'montar um depósito de carga', 2, 0], ['Um empresário de festas', 'fazer eventos na quadra', 0, 2], ['Uma rede de mototáxi de fora', 'rodar nas suas ruas', 0, -1], ['Uns caras de São Paulo', 'lavar dinheiro num lava-jato', 1, 0]],
   milicia: [['Uma provedora de internet', 'instalar antenas na área', 0, 0], ['Uma cooperativa de vans', 'rodar nas suas linhas', 0, -1], ['Um grileiro de fora', 'lotear um terreno', 2, -2], ['Uma igreja grande', 'abrir um templo', 0, 2]],
   policia: [['Uma empresa de segurança privada', 'atuar no comércio da área', 1, -1], ['Uma ONG', 'fazer projetos sociais', 0, 3], ['Uma rede de farmácias', 'patrocinar a base comunitária', 0, 1], ['Um empresário da noite', 'abrir uma casa de shows', 2, 0]],

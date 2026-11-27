@@ -12,7 +12,7 @@ export const RI = (a, b) => Math.floor(R(a, b + 1));
 export const pick = a => a[Math.floor(Math.random() * a.length)];
 export const sum = a => a.reduce((x, y) => x + y, 0);
 export const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-export const fmt = n => (n < 0 ? '-' : '') + 'R$ ' + Math.abs(Math.round(n)).toLocaleString('pt-BR');
+export const fmt = n => (n < 0 ? '-' : '') + ((S.MD && S.MD.cur) || 'R$') + ' ' + Math.abs(Math.round(n)).toLocaleString('pt-BR');
 export const store = {
   get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} },
@@ -113,7 +113,7 @@ export const TEN = {
   social: { name: 'Do povo', desc: '+2 lealdade por dia', eff: { loy: 2 } },
   comerciante: { name: 'Comerciante', desc: '+35% de vendas na zona', eff: { dem: .35 } },
 };
-const TEN_NAMES = { faccao: ['Tico', 'Bolado', 'Juninho', 'Careca', 'Magrão', 'Pretinho', 'Branco', 'Nego Léo'], milicia: ['Cabo Lima', 'Sargento Rui', 'Tenente Alves', 'Cabo Dias', 'Soldado Tavares', 'Sargento Bento'], policia: ['Ten. Moura', 'Sgt. Ribeiro', 'Ten. Castro', 'Sgt. Farias', 'Ten. Paiva', 'Sgt. Teles'], mafia: ['Don Peppe', 'Capo Saro', 'Capo Nenè', 'Capo Lillo', 'Capo Gino', 'Capo Tano'] };
+const TEN_NAMES = { faccao: ['Tico', 'Bolado', 'Juninho', 'Careca', 'Magrão', 'Pretinho', 'Branco', 'Nego Léo'], milicia: ['Cabo Lima', 'Sargento Rui', 'Tenente Alves', 'Cabo Dias', 'Soldado Tavares', 'Sargento Bento'], policia: ['Ten. Moura', 'Sgt. Ribeiro', 'Ten. Castro', 'Sgt. Farias', 'Ten. Paiva', 'Sgt. Teles'], mafia: ['Don Peppe', 'Capo Saro', 'Capo Nenè', 'Capo Lillo', 'Capo Gino', 'Capo Tano'], cartel: ['El Flaco', 'El Güero', 'Chuy', 'El Toro', 'Nacho', 'El Mudo'] };
 export const tenOf = i => (S.G.ten || {})[i];
 export const maxTen = () => Math.max(0, S.G.rank - 2) + (sk('ten') ? 1 : 0);
 export const tenCount = () => Object.keys(S.G.ten || {}).filter(i => S.G.d[i] && S.G.d[i].o === 0).length;
@@ -195,7 +195,7 @@ export const reserved = id => Math.min(S.G.stock[id] || 0, (S.G.ord || []).filte
 export const stockTotal = () => sum(Object.values(S.G.stock));
 export const contacts = () => (S.G.rank >= 1 ? [GROUP()] : []).concat(S.MD.contacts.filter(c => S.G.rank >= c.min && S.G.rank <= c.max))
   .concat(S.G.rank >= 5 ? S.G.f.map((f, k) => ({ id: 'rival' + k, name: f.name, role: f.alive ? 'Rival' : 'Eliminado', rival: k })) : []);
-export const groupName = () => ({ faccao: `Bonde ${S.G.pname.replace(/^Tropa do /, 'do ')}`, milicia: `Patrulha · ${S.G.pname}`, policia: `${S.G.pname} · Operacional`, mafia: `Famiglia · ${S.G.pname.replace(/^Famiglia /, '')}` }[S.G.mode] || S.G.pname);
+export const groupName = () => ({ cartel: `Célula ${S.G.pname.replace(/^Cartel /, '')}`, faccao: `Bonde ${S.G.pname.replace(/^Tropa do /, 'do ')}`, milicia: `Patrulha · ${S.G.pname}`, policia: `${S.G.pname} · Operacional`, mafia: `Famiglia · ${S.G.pname.replace(/^Famiglia /, '')}` }[S.G.mode] || S.G.pname);
 const GROUP = () => ({ id: 'grupo', name: groupName(), role: 'Grupo', group: 1 });
 export const contactById = id => id === 'grupo' ? GROUP() : S.MD.contacts.find(c => c.id === id) || (id.startsWith('rival') ? { id, name: S.G.f[+id.slice(5)].name, role: 'Rival', rival: +id.slice(5) } : { id, name: id, role: '' });
 export const log = (t, c = '') => { const g = S.G; g.log.unshift({ d: g.day, t, c }); if (g.log.length > 80) g.log.length = 80; };
@@ -274,6 +274,7 @@ function welcome() {
       milicia: [`${g.nick}, seja bem-vindo à ${g.pname}.`, `Você começa como ${rankName()} em ${z}. As ordens chegam por aqui. Nada de áudio, só texto.`],
       policia: [`${g.nick}, apresente-se. Você foi lotado na ${g.pname}.`, `Função: ${rankName()}. Setor: ${z}. Ordens de serviço chegam por este canal.`],
       mafia: [`${g.nick}, la famiglia ti accoglie.`, `Por enquanto você é ${rankName()} em ${z}. Faça o que eu pedir e vai subir.`],
+      cartel: [`${g.nick}, bienvenido ao ${g.pname}.`, `Você começa como ${rankName()} em ${z}. Aqui quem fala muito some. As ordens chegam por este telefone.`],
     }[mode];
     T.forEach(t => msg('chefe', t));
   }
@@ -287,12 +288,12 @@ export function dailyMessages() {
   const pool = [];
   if (g.rank <= 4 && near.length) {
     const z = pick(near);
-    pool.push(() => msg('chefe', { faccao: `Preciso de olho em ${zn(z)}. Vai lá de leve e conta quantos tão na contenção.`, milicia: `Quero saber quantos homens tem em ${zn(z)}. Dá uma volta lá e me passa.`, policia: `Levantamento de inteligência em ${zn(z)}. Contagem de efetivo armado.`, mafia: `Vai até ${zn(z)} e me diz quantos rapazes eles têm.` }[g.mode],
+    pool.push(() => msg('chefe', { faccao: `Preciso de olho em ${zn(z)}. Vai lá de leve e conta quantos tão na contenção.`, milicia: `Quero saber quantos homens tem em ${zn(z)}. Dá uma volta lá e me passa.`, policia: `Levantamento de inteligência em ${zn(z)}. Contagem de efetivo armado.`, mafia: `Vai até ${zn(z)} e me diz quantos rapazes eles têm.`, cartel: `Passa por ${zn(z)} e conta quantos armados eles têm na estrada.` }[g.mode],
       [{ l: 'Tô indo', k: 'vigiar', p: { z } }, { l: 'Hoje não dá', k: 'nada' }]));
   }
   if (g.rank <= 3 && mine.length) {
     const z = pick(mine), pay = RI(4, 9) * 100;
-    pool.push(() => msg('chefe', { faccao: `Tem ${w.load} pra levar até ${zn(z)}. Paga ${fmt(pay)}. Cuidado com ${w.cops}.`, milicia: `Leva ${w.load} até ${zn(z)}. Rende ${fmt(pay)} pro caixa.`, policia: `Escolta de ${w.load} até o depósito em ${zn(z)}. Verba de ${fmt(pay)} liberada se der certo.`, mafia: `Leva ${w.load} até ${zn(z)}. A família paga ${fmt(pay)}.` }[g.mode],
+    pool.push(() => msg('chefe', { faccao: `Tem ${w.load} pra levar até ${zn(z)}. Paga ${fmt(pay)}. Cuidado com ${w.cops}.`, milicia: `Leva ${w.load} até ${zn(z)}. Rende ${fmt(pay)} pro caixa.`, policia: `Escolta de ${w.load} até o depósito em ${zn(z)}. Verba de ${fmt(pay)} liberada se der certo.`, mafia: `Leva ${w.load} até ${zn(z)}. A família paga ${fmt(pay)}.`, cartel: `Leva ${w.load} até ${zn(z)} pela estrada de terra. Paga ${fmt(pay)}. Cuidado com ${w.cops}.` }[g.mode],
       [{ l: 'Fechou', k: 'entrega', p: { z, pay } }, { l: 'Tô sem condição', k: 'nada' }]));
   }
   if (g.rank >= 1 && g.rank <= 3 && mine.length) {
@@ -302,7 +303,7 @@ export function dailyMessages() {
   }
   if (g.rank <= 1 && near.length && g.day > 1) {
     const z = pick(near);
-    pool.push(() => msg('chefe', { faccao: `Amanhã a gente vai pra cima de ${zn(z)}. Tu vai junto?`, milicia: `Amanhã a patrulha toma ${zn(z)}. Conto com você?`, policia: `Operação em ${zn(z)} amanhã cedo. Você está escalado?`, mafia: `Domani prendiamo ${zn(z)}. Vem com a gente?` }[g.mode],
+    pool.push(() => msg('chefe', { faccao: `Amanhã a gente vai pra cima de ${zn(z)}. Tu vai junto?`, milicia: `Amanhã a patrulha toma ${zn(z)}. Conto com você?`, policia: `Operação em ${zn(z)} amanhã cedo. Você está escalado?`, mafia: `Domani prendiamo ${zn(z)}. Vem com a gente?`, cartel: `Mañana tomamos ${zn(z)}. Você vai com os muchachos?` }[g.mode],
       [{ l: 'Tô dentro', k: 'ordem', p: { z } }, { l: 'Dessa vez não', k: 'nada' }]));
   }
   if (g.rank >= 1) {
@@ -312,7 +313,7 @@ export function dailyMessages() {
   }
   if (g.rank >= 3 && mine.length) {
     const z = pick(mine), cost = RI(3, 8) * 100;
-    const pedido = pick({ faccao: ['faltou remédio pra uma senhora', 'a escola tá sem merenda', 'o campinho tá destruído'], milicia: ['a rua tá sem luz', 'a creche precisa de reforma', 'a van da escola quebrou'], policia: ['a praça precisa de iluminação', 'a escola pediu palestra e material', 'o posto de saúde tá sem segurança'], mafia: ['a festa do padroeiro precisa de verba', 'o telhado da igreja caiu', 'uma viúva não tem como pagar o aluguel'] }[g.mode]);
+    const pedido = pick({ faccao: ['faltou remédio pra uma senhora', 'a escola tá sem merenda', 'o campinho tá destruído'], milicia: ['a rua tá sem luz', 'a creche precisa de reforma', 'a van da escola quebrou'], policia: ['a praça precisa de iluminação', 'a escola pediu palestra e material', 'o posto de saúde tá sem segurança'], mafia: ['a festa do padroeiro precisa de verba', 'o telhado da igreja caiu', 'uma viúva não tem como pagar o aluguel'], cartel: ['a ponte do povoado caiu', 'a escola rural está sem professor', 'o posto de saúde está sem remédio'] }[g.mode]);
     pool.push(() => msg('morador', `${callMe() === 'chefe' ? 'Chefe' : 'Senhor'}, ${pedido} em ${zn(z)}. Dá pra ajudar com ${fmt(cost)}?`,
       [{ l: 'Ajudo', k: 'morador', p: { z, cost, yes: 1 } }, { l: 'Não dá', k: 'morador', p: { z, cost, yes: 0 } }]));
   }
@@ -445,8 +446,8 @@ export function checkRank() {
     if (tier <= g.rank) { const bonus = 250 * g.ri; g.money += bonus; log(`${g.nick} foi promovido a ${rankName()}.`, 'good'); emit('promo', rankName(), bonus); continue; }
     g.rank = tier;
     const u = UNLOCK[g.rank];
-    if (g.rank < 5) msg('chefe', { faccao: `Tu tá subindo, ${g.nick}. A partir de hoje é ${rankName()}.`, milicia: `Promovido. Agora você é ${rankName()}.`, policia: `Promoção publicada no boletim: ${rankName()}. Parabéns.`, mafia: `Bravo, ${g.nick}. Da oggi sei ${rankName()}.` }[g.mode]);
-    else msg('braco', { faccao: `Patrão, o Coroa rodou. A firma agora é tua.`, milicia: `Comandante, o Sargento Brito saiu de cena. A patrulha é sua.`, policia: `Comandante, sua nomeação saiu. O batalhão é seu.`, mafia: `Don ${g.nick}. A família agora é sua.` }[g.mode]);
+    if (g.rank < 5) msg('chefe', { faccao: `Tu tá subindo, ${g.nick}. A partir de hoje é ${rankName()}.`, milicia: `Promovido. Agora você é ${rankName()}.`, policia: `Promoção publicada no boletim: ${rankName()}. Parabéns.`, mafia: `Bravo, ${g.nick}. Da oggi sei ${rankName()}.`, cartel: `Vas subiendo, ${g.nick}. Desde hoy você é ${rankName()}.` }[g.mode]);
+    else msg('braco', { faccao: `Patrão, o Coroa rodou. A firma agora é tua.`, milicia: `Comandante, o Sargento Brito saiu de cena. A patrulha é sua.`, policia: `Comandante, sua nomeação saiu. O batalhão é seu.`, mafia: `Don ${g.nick}. A família agora é sua.`, cartel: `Patrón ${g.nick}. El Viejo se aposentou. O cartel é seu.` }[g.mode]);
     if (g.rank === 2) msg('braco', `Chefe, tô contigo. A rapaziada agora responde a você.`);
     log(`${g.nick} virou ${rankName()}. Liberado: ${u.label}.`, 'good');
     emit('rankup', g.rank, u);
@@ -648,8 +649,8 @@ export function newPrices(first) {
   if (mine.length && Math.random() < .35) {
     const z = pick(mine), up = Math.random() < .6, f = up ? R(1.6, 2.2) : R(.15, .4);
     g.mev = { z, f: +f.toFixed(2), up };
-    const T = up ? { faccao: `vai ter baile em ${zname(z)} hoje. Vai bombar de gente.`, milicia: `tem feira grande em ${zname(z)} hoje. Movimento dobrado.`, policia: `leilão especial hoje com compradores de fora em ${zname(z)}.`, mafia: `festa do padroeiro em ${zname(z)} hoje. A cidade toda na rua.` }
-      : { faccao: `${W().cops} tão rondando ${zname(z)}. As bancas vão vender pouco hoje.`, milicia: `fiscalização em ${zname(z)}. Os pontos vão ficar parados.`, policia: `o leilão de ${zname(z)} foi suspenso pela justiça hoje.`, mafia: `os Carabinieri fecharam o porto de ${zname(z)} por hoje.` };
+    const T = up ? { faccao: `vai ter baile em ${zname(z)} hoje. Vai bombar de gente.`, milicia: `tem feira grande em ${zname(z)} hoje. Movimento dobrado.`, policia: `leilão especial hoje com compradores de fora em ${zname(z)}.`, mafia: `festa do padroeiro em ${zname(z)} hoje. A cidade toda na rua.`, cartel: `chegou dinheiro do garimpo em ${zname(z)}. Todo mundo comprando.` }
+      : { faccao: `${W().cops} tão rondando ${zname(z)}. As bancas vão vender pouco hoje.`, milicia: `fiscalização em ${zname(z)}. Os pontos vão ficar parados.`, policia: `o leilão de ${zname(z)} foi suspenso pela justiça hoje.`, mafia: `os Carabinieri fecharam o porto de ${zname(z)} por hoje.`, cartel: `o exército fechou a estrada de ${zname(z)} hoje.` };
     const who = can('crew') ? 'braco' : 'olheiro';
     msg(who, `${can('attack') ? 'Chefe, ' : ''}${T[g.mode]}`[0].toUpperCase() + `${can('attack') ? 'Chefe, ' : ''}${T[g.mode]}`.slice(1));
   }

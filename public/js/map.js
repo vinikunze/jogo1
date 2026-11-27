@@ -8,6 +8,7 @@ const EMPTY = { type: 'FeatureCollection', features: [] };
 let map = null, ready = false, mapId = null, onSelect = () => {}, onReadyCb = () => {};
 export let view = 'dom';
 export const isReady = () => ready;
+export const _map = () => map;
 
 const geoOf = J => ({ type: 'FeatureCollection', features: J.z.map((z, i) => ({ type: 'Feature', id: i, properties: { i }, geometry: { type: 'MultiPolygon', coordinates: z.g } })) });
 const linesOf = J => ({ type: 'FeatureCollection', features: J.links.map(([a, b]) => ({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [J.z[a].l, J.z[b].l] } })) });
@@ -22,7 +23,7 @@ export function initMap(select, done) {
   if (map && mapId === M.id) { map.resize(); if (ready) onReadyCb(); return; }
   if (map) { map.remove(); map = null; }
   ready = false; mapId = M.id;
-  map = new maplibregl.Map({ container: 'map', style: STYLE, bounds: M.bounds, fitBoundsOptions: { padding: pad() }, attributionControl: false, dragRotate: false, pitchWithRotate: false, touchPitch: false, maxZoom: 16, minZoom: 7, renderWorldCopies: false });
+  map = new maplibregl.Map({ container: 'map', style: STYLE, bounds: M.bounds, fitBoundsOptions: { padding: pad() }, attributionControl: false, dragRotate: false, pitchWithRotate: false, touchPitch: false, maxZoom: 16, minZoom: M.id === 'sulamerica' ? 2.5 : 7, renderWorldCopies: false });
   map.touchZoomRotate.disableRotation(); map.keyboard.disableRotation();
   map.addControl(new maplibregl.AttributionControl({ compact: true, customAttribution: M.credit }), 'bottom-left');
   let fell = false; const fallback = () => { if (!ready && !fell) { fell = true; map.setStyle(FALLBACK); } };
@@ -35,7 +36,8 @@ export function initMap(select, done) {
   map.on('mouseleave', 'zf', () => map.getCanvas().style.cursor = '');
 }
 function styleTweak() {
-  for (const l of map.getStyle().layers) if (/oneway|^place_|boundary|aeroway|ice_shelf|glacier|water_name/.test(l.id)) map.setLayoutProperty(l.id, 'visibility', 'none');
+  const hide = S.M.id === 'sulamerica' ? /oneway|^place_|aeroway|ice_shelf|glacier|water_name/ : /oneway|^place_|boundary|aeroway|ice_shelf|glacier|water_name/;
+  for (const l of map.getStyle().layers) if (hide.test(l.id)) map.setLayoutProperty(l.id, 'visibility', 'none');
   const set = (id, p, v) => { try { if (map.getLayer(id)) map.setPaintProperty(id, p, v); } catch (e) {} };
   set('background', 'background-color', '#0b0d11'); set('water', 'fill-color', '#0a1923');
 }
@@ -128,6 +130,6 @@ export function arrow(a, b) {
   requestAnimationFrame(step);
 }
 export function fitAll() { if (map) map.fitBounds(S.M.bounds, { padding: pad(), duration: 0 }); }
-export function focusOn(i, zoomIn) { if (!map) return; const z = zoomIn ? Math.max(map.getZoom(), { rio: 10.6, rio2: 10.6, palermo: 9.1, sicilia: 8.3 }[S.M.id] || 9.5) : map.getZoom(); map.easeTo({ center: S.M.z[i].l, zoom: z, padding: pad(), duration: 650 }); }
+export function focusOn(i, zoomIn) { if (!map) return; const z = zoomIn ? Math.max(map.getZoom(), { rio: 10.6, rio2: 10.6, palermo: 9.1, sicilia: 8.3, sulamerica: 5.2 }[S.M.id] || 9.5) : map.getZoom(); map.easeTo({ center: S.M.z[i].l, zoom: z, padding: pad(), duration: 650 }); }
 export function zoom(d) { if (!map) return; d > 0 ? map.zoomIn() : map.zoomOut(); }
 export function resize() { if (map) map.resize(); }
