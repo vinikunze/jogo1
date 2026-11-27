@@ -5,6 +5,7 @@ import {
 } from './engine.js';
 import { orderStart, orderEnd } from './orders.js';
 import { newsDay } from './news.js';
+import { ZT } from './data.js';
 
 const zn = i => S.M.z[i].n;
 const W = () => S.MD.words;
@@ -25,6 +26,234 @@ const pickNames = n => { const L = mode() === 'mafia' ? NAMES_IT : mode() === 'p
 const T = obj => obj[mode()] || obj.default;
 
 // ---------------- histórias ----------------
+// ---------------- histórias em cadeia ----------------
+const cset = (id, v) => { const g = S.G; g.chain = g.chain || {}; g.chain[id] = v; g.chainDay = g.day; };
+const cget = id => (S.G.chain || {})[id];
+const cneed = (who, r, prev) => () => { const p = prev && prev.replace('!', ''); return rel(who) >= r && (!p || (cget(p) && !(prev.endsWith('!') && cget(p) === 'nao'))) && S.G.day - (S.G.chainDay || 0) >= 4; };
+const reveal = (k, days) => owned(k + 1).forEach(i => { S.G.seen[i] = S.G.day + days; });
+const allLoy = n => owned(0).forEach(i => { S.G.d[i].l = clamp(S.G.d[i].l + n, 0, 100); });
+const strongest = () => { const a = alive().filter(k => owned(k + 1).length); return a.length ? a.sort((x, y) => owned(y + 1).length - owned(x + 1).length)[0] : null; };
+const freeBuild = id => { const g = S.G, z = owned(0).find(i => g.d[i].b.length < ZT[S.M.type[i]].slots && !g.d[i].b.includes(id)); if (z == null) return null; g.d[z].b.push(id); g.d[z].lv = g.d[z].lv || {}; g.d[z].lv[id] = 1; return z; };
+function betray(g, d) { const z = g.d[d.z]; if (z.o === 0 && d.z !== g.base && g.f[d.r].alive) { z.o = d.r + 1; z.t = Math.max(3, Math.round(z.t * .7)); z.l = 50; z.b = z.b.filter(() => Math.random() < .5); log(`Traição: ${zn(d.z)} passou para ${rivalName(d.r)}.`, 'bad'); S.flash = d.z; } }
+const pay = (g, v) => { if (g.money < v) return false; g.money -= v; return true; };
+const CH = (id, modes, who, r, prev, min, steps, init) => ({ id, modes, min, weight: 9, once: 1, need: cneed(who, r, prev), init: init || (d => { d.r = strongest(); d.z = owned(0).length ? pick(owned(0)) : null; return true; }), steps });
+const ok = (say, k, v) => ({ say, end: 1, _c: [k, v] });
+function chainStories() {
+  const R1 = d => d.r != null ? rivalName(d.r) : 'os rivais';
+  return [
+    // ===== FACÇÃO: Fofão, o olheiro =====
+    CH('fofao1', ['faccao'], 'olheiro', 45, null, 0, {
+      a: { from: () => 'olheiro', text: () => 'Chefe, tem um carro prata rodando a base faz três noites. Mesmo horário, vidro fechado. Tô cabreiro.',
+        opts: d => [
+          { l: 'Segue o carro e me conta', fx: () => ({ say: 'Deixa comigo. Amanhã te falo.', next: 'b', delay: 1 }) },
+          { l: 'Pega o motorista', fx(g) { g.heat = Math.min(100, g.heat + 8); addKarma(-4); addXP(40); if (d.r != null) reveal(d.r, 3); cset('fofao1', 'pega'); return { say: `Pegamos. Era cria de ${R1(d)}, contando a nossa tropa. Agora a gente sabe onde eles tão por uns dias.`, end: 1 }; } },
+          { l: 'Deixa quieto', fx() { cset('fofao1', 'nada'); return { say: 'Tá bom, mas fico de olho.', end: 1 }; } },
+        ] },
+      b: { from: () => 'olheiro', text: d => `Era olheiro de ${R1(d)}. Tão contando a nossa tropa e anotando os horários.`,
+        opts: d => [{ l: 'Bom trabalho, Fofão', fx(g) { if (d.r != null) reveal(d.r, 6); addXP(60); addRel('olheiro', 6); cset('fofao1', 'segue'); return { say: 'Anotei tudo deles também. Por uns dias você vê a tropa deles no mapa.', end: 1 }; } }] },
+    }),
+    CH('fofao2', ['faccao'], 'olheiro', 58, 'fofao1', 0, {
+      a: { from: () => 'olheiro', text: () => 'Chefe, posso falar uma parada? Minha mãe quer que eu saia do morro pra estudar. Tem um curso técnico no Centro. Eu não queria deixar a firma na mão...',
+        opts: () => [
+          { l: `Eu pago o curso (${fmt(1500)})`, fx(g) { if (!pay(g, 1500)) return { say: 'Tá sem caixa? Relaxa, eu espero.', next: 'a', delay: 1 }; addKarma(10); addRel('olheiro', 15); cset('fofao2', 'curso'); return { say: 'Sério? Nunca vou esquecer isso, chefe. Continuo de olho pra você, de onde eu tiver.', end: 1 }; } },
+          { l: 'Você fica. Preciso de você aqui', fx() { addKarma(-6); addRel('olheiro', -10); cset('fofao2', 'fica'); return { say: 'Entendi. Tô aqui então.', end: 1 }; } },
+          { l: 'Pode ir, mas sem ajuda', fx() { addKarma(2); addRel('olheiro', -3); cset('fofao2', 'livre'); return { say: 'Valeu por liberar, chefe.', end: 1 }; } },
+        ] },
+    }),
+    CH('fofao3', ['faccao'], 'olheiro', 50, 'fofao2', 0, {
+      a: { from: () => 'olheiro', text: d => ({ curso: `Chefe, tô estagiando na prefeitura. Vi uma ordem no sistema: operação grande em ${zn(S.G.base)} nos próximos dias. Ninguém sabe que eu vi.`, fica: 'Chefe... me pegaram ontem na contenção. Tô na delegacia. Se não vier advogado, vão me apertar até eu falar.', livre: `Chefe, tô de motoboy agora. Mas vi um movimento estranho de ${R1(d)} perto das nossas áreas. Achei que você devia saber.` })[cget('fofao2')],
+        opts: d => cget('fofao2') === 'curso' ? [
+          { l: 'Espalha a tropa e esvazia a base', fx(g) { addBuf({ raid: 0 }, 5, 'Avisado pelo Fofão'); addXP(100); cset('fofao3', 'ok'); return { say: 'Quando eles chegarem, não vai ter nada lá. Fica tranquilo por uns dias.', end: 1 }; } },
+        ] : cget('fofao2') === 'fica' ? [
+          { l: `Manda o advogado (${fmt(2500)})`, fx(g) { if (!pay(g, 2500)) { g.heat = Math.min(100, g.heat + 20); cset('fofao3', 'falou'); return { say: 'Sem advogado... desculpa, chefe. Tive que falar alguma coisa.', end: 1 }; } addRel('olheiro', 20); addKarma(4); cset('fofao3', 'solto'); return { say: 'Tô na rua. Fechei a boca, como sempre.', end: 1 }; } },
+          { l: 'Se vira, Fofão', fx(g) { g.heat = Math.min(100, g.heat + 25); addKarma(-8); addRel('olheiro', -30); cset('fofao3', 'falou'); return { say: '...', end: 1 }; } },
+        ] : [
+          { l: 'Valeu, Fofão. Se cuida', fx(g) { if (d.r != null) reveal(d.r, 6); addKarma(3); addXP(50); cset('fofao3', 'ok'); return { say: 'Tamo junto. Você vê eles no mapa por uns dias.', end: 1 }; } },
+        ] },
+    }),
+    // ===== FACÇÃO: Dona Cida =====
+    CH('cida1', ['faccao'], 'morador', 45, null, 3, {
+      a: { from: () => 'morador', text: () => `Meu filho, o Wesley, tá devendo ${fmt(1200)} pra uns caras de fora da comunidade. Ameaçaram ele na porta de casa. Não sei mais a quem recorrer.`,
+        opts: () => [
+          { l: `Pagar a dívida (${fmt(1200)})`, fx(g) { if (!pay(g, 1200)) return { say: 'Sem caixa agora...', end: 1 }; addKarma(8); addRel('morador', 15); cset('cida1', 'pagou'); return { say: 'Deus te pague. A comunidade inteira vai saber.', end: 1 }; } },
+          { l: 'Manda os caras virem falar comigo', fx(g) { addKarma(-2); g.heat = Math.min(100, g.heat + 5); addRel('morador', 8); addXP(40); cset('cida1', 'recado'); return { say: 'Os caras sumiram da área. Obrigada, mas fiquei com medo.', end: 1 }; } },
+          { l: 'Não é problema meu', fx() { addKarma(-4); addRel('morador', -12); cset('cida1', 'nao'); return { say: 'Entendi.', end: 1 }; } },
+        ] },
+    }),
+    CH('cida2', ['faccao'], 'morador', 55, 'cida1', 3, {
+      a: { from: () => 'morador', text: () => `A creche da comunidade tá caindo aos pedaços. Com ${fmt(2500)} a gente reforma. O povo vai saber quem ajudou.`,
+        opts: () => [
+          { l: `Reformar a creche (${fmt(2500)})`, fx(g) { if (!pay(g, 2500)) return { say: 'Quando der, a gente conversa.', end: 1 }; const z = freeBuild('creche'); if (z != null) g.d[z].l = clamp(g.d[z].l + 10, 0, 100); addKarma(12); addXP(80); cset('cida2', 'creche'); return { say: z != null ? `Creche reformada em ${zn(z)}. As mães tão chorando de alegria.` : 'Reformada! O povo agradece.', end: 1 }; } },
+          { l: `Reformar, com o nome da firma na fachada (${fmt(2500)})`, fx(g) { if (!pay(g, 2500)) return { say: 'Quando der, a gente conversa.', end: 1 }; freeBuild('creche'); addKarma(3); addXP(120); g.heat = Math.min(100, g.heat + 5); cset('cida2', 'nome'); return { say: 'Tá lá o nome, bem grande. Todo mundo vê.', end: 1 }; } },
+          { l: 'Agora não dá', fx() { addRel('morador', -5); cset('cida2', 'nao'); return { say: 'Tudo bem. A gente se vira.', end: 1 }; } },
+        ] },
+    }),
+    CH('cida3', ['faccao'], 'morador', 50, 'cida2', 3, {
+      a: { from: () => 'morador', text: () => kBad() ? 'Vou ser sincera: o povo tá com medo de você. Ninguém fala, mas tão indo embora. Se continuar assim, não sobra comunidade.' : 'O povo quer fazer uma festa na quadra em sua homenagem. Churrasco, pagode e o morro inteiro lá.',
+        opts: () => kBad() ? [
+          { l: `Mudar o jeito: ajudar quem ficou (${fmt(3000)})`, fx(g) { if (!pay(g, 3000)) return { say: 'Palavra sem ajuda não muda nada.', end: 1 }; addKarma(25); allLoy(6); cset('cida3', 'mudou'); return { say: 'É um começo. O povo vai ver.', end: 1 }; } },
+          { l: 'Medo também é respeito', fx() { addKarma(-5); allLoy(-5); addXP(60); cset('cida3', 'medo'); return { say: 'Que Deus tenha piedade de nós.', end: 1 }; } },
+        ] : [
+          { l: 'Vou lá', fx() { allLoy(8); addXP(120); addKarma(5); cset('cida3', 'festa'); return { say: 'Foi a maior festa que esse morro já viu. Todo mundo do seu lado.', end: 1 }; } },
+          { l: 'Agradeço, mas prefiro ficar na minha', fx() { allLoy(4); cset('cida3', 'discreto'); return { say: 'Humilde. O povo gosta disso também.', end: 1 }; } },
+        ] },
+    }),
+    // ===== MILÍCIA: Tonhão =====
+    CH('tonhao1', ['milicia'], 'olheiro', 45, null, 0, {
+      a: { from: () => 'olheiro', text: () => 'O Lessa da patrulha tá desviando botijão e vendendo por fora. Tenho foto e tudo.',
+        opts: () => [
+          { l: 'Expulsa o Lessa', fx() { addKarma(4); addRel('olheiro', 8); addXP(40); cset('tonhao1', 'expulsa'); return { say: 'Expulso. A patrulha entendeu o recado.', end: 1 }; } },
+          { l: 'Desconta do salário dele', fx(g) { g.money += 600; cset('tonhao1', 'desconta'); return { say: `Descontado: ${fmt(600)} de volta pro caixa.`, end: 1 }; } },
+          { l: 'Deixa ele. Eu fico com uma parte', fx(g) { g.money += 1200; addKarma(-6); cset('tonhao1', 'parte'); return { say: `Combinado. ${fmt(1200)} por fora.`, end: 1 }; } },
+        ] },
+    }),
+    CH('tonhao2', ['milicia'], 'olheiro', 55, 'tonhao1', 0, {
+      a: { from: () => 'olheiro', text: d => `Quero abrir um ponto de van meu em ${d.z != null ? zn(d.z) : 'uma das nossas áreas'}. Preciso de ${fmt(2000)} de sociedade e te passo metade do lucro.`,
+        opts: () => [
+          { l: `Entrar de sócio (${fmt(2000)})`, fx(g) { if (!pay(g, 2000)) return { say: 'Sem caixa, fica pra depois.', end: 1 }; g.rent = (g.rent || 0) + 180; addXP(50); cset('tonhao2', 'socio'); return { say: `Fechado. Vai render uns ${fmt(180)} por dia pra você.`, end: 1 }; } },
+          { l: 'Pode abrir. Não cobro nada', fx() { addKarma(6); addRel('olheiro', 15); cset('tonhao2', 'livre'); return { say: 'Você é diferente dos outros. Não esqueço.', end: 1 }; } },
+          { l: 'Van aqui é só da firma', fx() { addRel('olheiro', -8); cset('tonhao2', 'nao'); return { say: 'Tá certo. Entendi.', end: 1 }; } },
+        ] },
+    }),
+    CH('tonhao3', ['milicia'], 'olheiro', 55, 'tonhao2', 0, {
+      a: { from: () => 'olheiro', text: () => 'A Federal tá montando operação contra a gente. Delegado novo, Dr. Saulo. Dizem que ele aceita conversa.',
+        opts: () => [
+          { l: `Comprar o delegado (${fmt(4000)})`, fx(g) { if (!pay(g, 4000)) return { say: 'Sem os 4 mil, ele não senta pra conversar.', end: 1 }; addKarma(-8); addBuf({ raid: .3 }, 14, 'Delegado comprado'); cset('tonhao3', 'comprou'); return { say: 'Feito. Duas semanas de sossego.', end: 1 }; } },
+          { l: 'Fechar os pontos por uns dias', fx(g) { addBuf({ dem: .5 }, 5, 'Pontos fechados'); g.heat = Math.max(0, g.heat - 30); cset('tonhao3', 'fechou'); return { say: 'Pontos fechados. Quando eles chegarem, não vão achar nada.', end: 1 }; } },
+          { l: 'Pagar pra ver', fx(g) { g.heat = Math.min(100, g.heat + 20); cset('tonhao3', 'ver'); return { say: 'Então se prepara.', end: 1 }; } },
+        ] },
+    }),
+    // ===== MILÍCIA: Dona Cida =====
+    CH('mcida1', ['milicia'], 'morador', 45, null, 3, {
+      a: { from: () => 'morador', text: () => 'Vai ter eleição na associação. O pessoal quer votar livre, sem ninguém de vocês na chapa.',
+        opts: () => [
+          { l: 'Eleição livre', fx() { addKarma(10); allLoy(5); addRel('morador', 10); cset('mcida1', 'livre'); return { say: 'O povo vai lembrar disso.', end: 1 }; } },
+          { l: 'O nosso candidato ganha de qualquer jeito', fx() { addKarma(-10); addXP(60); addRel('morador', -10); addBuf({ raid: .8 }, 10, 'Associação na mão'); cset('mcida1', 'nosso'); return { say: 'Como você quiser.', end: 1 }; } },
+        ] },
+    }),
+    CH('mcida2', ['milicia'], 'morador', 50, 'mcida1', 3, {
+      a: { from: () => 'morador', text: () => 'Um prédio do loteamento rachou depois da chuva. Tem 12 famílias com medo de dormir lá dentro.',
+        opts: () => [
+          { l: `Pagar aluguel para as famílias (${fmt(3000)})`, fx(g) { if (!pay(g, 3000)) return { say: 'Sem esse dinheiro, as famílias ficam lá.', end: 1 }; addKarma(15); allLoy(4); cset('mcida2', 'ajudou'); return { say: 'As famílias estão seguras. Obrigada.', end: 1 }; } },
+          { l: 'Manda o engenheiro dizer que tá tudo bem', fx(g) { addKarma(-12); g.heat = Math.min(100, g.heat + 10); cset('mcida2', 'mentiu'); return { say: 'Se cair, a culpa é de vocês.', end: 1 }; } },
+          { l: 'Demolir e vender os lotes de novo', fx(g) { g.money += 2500; addKarma(-15); allLoy(-4); cset('mcida2', 'vendeu'); return { say: `${fmt(2500)} no caixa. E 12 famílias na rua.`, end: 1 }; } },
+        ] },
+    }),
+    CH('mcida3', ['milicia'], 'morador', 40, 'mcida2', 3, {
+      a: { from: () => 'morador', text: () => kBad() ? 'Gravaram um vídeo denunciando a taxa e o prédio. Tá rodando em todo grupo de WhatsApp da cidade.' : 'Os moradores fizeram um abaixo-assinado pedindo que a patrulha continue. Até o padre assinou.',
+        opts: () => kBad() ? [
+          { l: `Pagar um jornalista para abafar (${fmt(3000)})`, fx(g) { if (!pay(g, 3000)) { g.heat = Math.min(100, g.heat + 20); return { say: 'Sem dinheiro, o vídeo correu solto.', end: 1 }; } g.heat = Math.max(0, g.heat - 20); cset('mcida3', 'abafou'); return { say: 'Saiu do ar. Por enquanto.', end: 1 }; } },
+          { l: 'Descobre quem gravou', fx(g) { addKarma(-10); g.heat = Math.min(100, g.heat + 10); allLoy(-5); cset('mcida3', 'cacou'); return { say: 'Achamos. Mas agora o bairro inteiro tem medo.', end: 1 }; } },
+        ] : [
+          { l: 'Agradecer pessoalmente na associação', fx() { allLoy(8); addBuf({ raid: .6 }, 10, 'Apoio dos moradores'); addXP(120); cset('mcida3', 'apoio'); return { say: 'O bairro tá com você.', end: 1 }; } },
+        ] },
+    }),
+    // ===== POLÍCIA: Informante X =====
+    CH('infx1', ['policia'], 'olheiro', 45, null, 0, {
+      a: { from: () => 'olheiro', text: d => `Comandante, sei onde o chefe de ${R1(d)} dorme e onde eles guardam o material. Em troca quero sair da cidade com proteção.`,
+        opts: d => [
+          { l: `Fechado, você terá proteção (${fmt(1500)})`, fx(g) { if (!pay(g, 1500)) return { say: 'Sem garantia, sem informação.', end: 1 }; addKarma(4); if (d.r != null) reveal(d.r, 6); addXP(80); cset('infx1', 'protege'); return { say: 'Mandei tudo. Você vê a tropa deles no mapa por uns dias.', end: 1 }; } },
+          { l: `Pago a informação e acabou (${fmt(800)})`, fx(g) { if (!pay(g, 800)) return { say: 'Sem dinheiro, sem conversa.', end: 1 }; addKarma(-3); if (d.r != null) reveal(d.r, 4); cset('infx1', 'pagou'); return { say: 'Tá aí. Boa sorte.', end: 1 }; } },
+          { l: 'Não negocio com bandido', fx() { addRel('olheiro', -10); cset('infx1', 'nao'); return { say: 'Problema seu.', end: 1 }; } },
+        ] },
+    }),
+    CH('infx2', ['policia'], 'olheiro', 40, 'infx1!', 0, {
+      a: { from: () => 'olheiro', text: () => 'Comandante, descobriram que fui eu. Tão atrás de mim. Preciso entrar no programa de proteção hoje.',
+        opts: () => [
+          { l: `Colocar no programa (${fmt(2000)})`, fx(g) { if (!pay(g, 2000)) { addRel('olheiro', -20); cset('infx2', 'largou'); return { say: 'Sem verba... então é cada um por si.', end: 1 }; } addKarma(8); addRel('olheiro', 15); cset('infx2', 'protegido'); return { say: 'Tô seguro. Não vou esquecer.', end: 1 }; } },
+          { l: 'Não é mais problema meu', fx() { addKarma(-10); addRel('olheiro', -30); cset('infx2', 'largou'); return { say: '...', end: 1 }; } },
+        ] },
+    }),
+    CH('infx3', ['policia'], 'chefe', 0, 'infx2', 0, {
+      a: { from: () => cget('infx2') === 'protegido' ? 'olheiro' : (can('crew') ? 'braco' : 'chefe'), text: d => cget('infx2') === 'protegido' ? `Do lugar seguro onde estou: a cúpula de ${R1(d)} vai se reunir amanhã. Todos no mesmo lugar.` : 'Comandante, o Informante X foi encontrado morto. A comunidade culpa a polícia.',
+        opts: d => cget('infx2') === 'protegido' ? [
+          { l: 'Montar a operação', fx(g) { if (d.r != null) owned(d.r + 1).forEach(i => { g.d[i].t = Math.max(1, Math.round(g.d[i].t * .6)); }); addXP(150); g.heat = Math.max(0, g.heat - 10); cset('infx3', 'cupula'); return { say: `Cúpula presa. ${R1(d)} perdeu 40% da tropa em todas as áreas.`, end: 1 }; } },
+        ] : [
+          { l: 'Assumir a responsabilidade', fx(g) { addKarma(6); allLoy(-3); g.heat = Math.min(100, g.heat + 10); cset('infx3', 'assumiu'); return { say: 'A imprensa caiu em cima, mas a comunidade respeitou.', end: 1 }; } },
+          { l: 'Negar tudo', fx(g) { addKarma(-6); allLoy(-6); g.heat = Math.min(100, g.heat + 15); cset('infx3', 'negou'); return { say: 'Ninguém acreditou.', end: 1 }; } },
+        ] },
+    }),
+    // ===== POLÍCIA: Dona Cida =====
+    CH('pcida1', ['policia'], 'morador', 45, null, 3, {
+      a: { from: () => 'morador', text: () => 'Comandante, os comerciantes reclamam que o soldado Paulo, da sua equipe, anda cobrando "taxa" deles.',
+        opts: () => [
+          { l: 'Afastar e mandar para a corregedoria', fx() { addKarma(10); addRel('braco', -5); allLoy(3); cset('pcida1', 'afastou'); return { say: 'Obrigada. Os comerciantes vão confiar mais na polícia.', end: 1 }; } },
+          { l: 'Dar uma bronca e deixar', fx() { addKarma(-3); cset('pcida1', 'bronca'); return { say: 'Espero que pare.', end: 1 }; } },
+          { l: 'Ele divide comigo', fx(g) { g.money += 800; addKarma(-12); cset('pcida1', 'divide'); return { say: 'Então é assim...', end: 1 }; } },
+        ] },
+    }),
+    CH('pcida2', ['policia'], 'morador', 50, 'pcida1', 3, {
+      a: { from: () => 'morador', text: () => `A quadra da comunidade pode virar um projeto de esporte. Falta ${fmt(2000)} em material.`,
+        opts: () => [
+          { l: `Bancar o material (${fmt(2000)})`, fx(g) { if (!pay(g, 2000)) return { say: 'Quando der.', end: 1 }; addKarma(8); g.d[g.base].l = clamp(g.d[g.base].l + 8, 0, 100); freeBuild('esporte'); cset('pcida2', 'bancou'); return { say: 'Projeto de pé! As crianças adoraram.', end: 1 }; } },
+          { l: `Bancar e chamar a imprensa (${fmt(2000)})`, fx(g) { if (!pay(g, 2000)) return { say: 'Quando der.', end: 1 }; addKarma(3); addXP(80); g.heat = Math.max(0, g.heat - 10); freeBuild('esporte'); cset('pcida2', 'midia'); return { say: 'Saiu no jornal. Boa imagem para a unidade.', end: 1 }; } },
+        ] },
+    }),
+    CH('pcida3', ['policia'], 'morador', 40, 'pcida2', 3, {
+      a: { from: () => kBad() ? 'advogado' : 'morador', text: () => kBad() ? 'A corregedoria abriu investigação pelas denúncias da associação. Querem ouvir o senhor.' : 'A comunidade fez uma faixa: "Obrigado, polícia". A TV quer entrevistar o senhor.',
+        opts: () => kBad() ? [
+          { l: `Contratar defesa (${fmt(3000)})`, fx(g) { if (!pay(g, 3000)) { arrest(null, 3); return { say: 'Sem defesa, o senhor foi afastado.', end: 1 }; } cset('pcida3', 'defesa'); return { say: 'Arquivado. Por enquanto.', end: 1 }; } },
+          { l: 'Me apresento e assumo', fx() { addKarma(10); arrest(null, 3); cset('pcida3', 'assumiu'); return { say: 'Afastado por uns dias. Mas de cabeça erguida.', end: 1 }; } },
+        ] : [
+          { l: 'Dar a entrevista', fx(g) { g.heat = Math.max(0, g.heat - 25); addXP(120); allLoy(6); cset('pcida3', 'tv'); return { say: 'Virou exemplo no jornal da noite.', end: 1 }; } },
+        ] },
+    }),
+    // ===== MÁFIA: Peppino =====
+    CH('pepp1', ['mafia'], 'olheiro', 45, null, 0, {
+      a: { from: () => 'olheiro', text: () => 'Don, um jornalista do Giornale está fotografando o restaurante todo dia.',
+        opts: () => [
+          { l: 'Convidar para jantar e conversar', fx(g) { addKarma(3); g.heat = Math.max(0, g.heat - 5); cset('pepp1', 'jantar'); return { say: 'Jantou, bebeu e escreveu sobre a comida. Bravo.', end: 1 }; } },
+          { l: 'Mandar quebrar a câmera', fx(g) { addKarma(-6); g.heat = Math.min(100, g.heat + 8); cset('pepp1', 'camera'); return { say: 'Câmera quebrada. Ele entendeu.', end: 1 }; } },
+          { l: 'Ignorar', fx(g) { g.heat = Math.min(100, g.heat + 5); cset('pepp1', 'nada'); return { say: 'Come vuole.', end: 1 }; } },
+        ] },
+    }),
+    CH('pepp2', ['mafia'], 'olheiro', 55, 'pepp1', 0, {
+      a: { from: () => 'olheiro', text: d => `Don... me apaixonei pela filha de um homem de ${R1(d)}. Ela também gosta de mim. Quero casar.`,
+        opts: d => [
+          { l: 'Benedico. Que seja uma ponte', fx(g) { if (d.r != null) g.f[d.r].truce = g.day + 12; addKarma(8); addRel('olheiro', 15); cset('pepp2', 'bencao'); return { say: `Grazie, Don! ${R1(d)} aceitou uma trégua de 12 dias pelo casamento.`, end: 1 }; } },
+          { l: 'Mai! Esquece essa moça', fx() { addRel('olheiro', -15); cset('pepp2', 'proibiu'); return { say: 'Sì, Don...', end: 1 }; } },
+          { l: 'Casa, e me conta tudo da família dela', fx(g) { if (d.r != null) reveal(d.r, 10); addKarma(-6); cset('pepp2', 'espiao'); return { say: 'Farei o que o senhor mandar.', end: 1 }; } },
+        ] },
+    }),
+    CH('pepp3', ['mafia'], 'olheiro', 0, 'pepp2', 0, {
+      a: { from: () => 'olheiro', text: d => ({ bencao: `O casamento foi lindo, Don. O pai dela diz que ${R1(d)} quer conversar sobre dividir Palermo.`, proibiu: `Don, perdão. Fugi com ela. ${R1(d)} acha que foi ordem sua.`, espiao: `Don, descobri onde ${R1(d)} guarda o dinheiro.` })[cget('pepp2')],
+        opts: d => cget('pepp2') === 'bencao' ? [
+          { l: 'Aceitar a parceria', fx(g) { if (d.r != null) g.f[d.r].truce = g.day + 20; g.rent = (g.rent || 0) + 300; addKarma(6); cset('pepp3', 'parceria'); return { say: `Parceria fechada: 20 dias de paz e ${fmt(300)} por dia em negócios juntos.`, end: 1 }; } },
+          { l: 'Usar a festa para atacar', fx(g) { if (d.r != null) { owned(d.r + 1).forEach(i => { g.d[i].t = Math.max(1, Math.round(g.d[i].t * .7)); }); g.f[d.r].truce = 0; } addKarma(-20); addRel('olheiro', -30); cset('pepp3', 'traiu'); return { say: 'Eles perderam 30% da tropa. E Peppino nunca mais olhou nos seus olhos.', end: 1 }; } },
+        ] : cget('pepp2') === 'proibiu' ? [
+          { l: 'Mandar um presente ao pai dela', fx(g) { if (!pay(g, 1500)) { if (d.r != null) g.f[d.r].money += 2000; return { say: 'Sem presente, eles estão se armando.', end: 1 }; } addKarma(4); cset('pepp3', 'presente'); return { say: 'O presente acalmou os ânimos.', end: 1 }; } },
+          { l: 'Que venham', fx(g) { if (d.r != null) { g.f[d.r].money += 2500; g.f[d.r].truce = 0; } cset('pepp3', 'guerra'); return { say: 'Eles estão se armando.', end: 1 }; } },
+        ] : [
+          { l: 'Buscar o dinheiro', fx(g) { g.money += 3500; g.extra = (g.extra || 0) + 3500; addKarma(-5); cset('pepp3', 'cofre'); return { say: `${fmt(3500)} da família deles, agora nossos.`, end: 1 }; } },
+        ] },
+    }),
+    // ===== MÁFIA: Padre Ignazio =====
+    CH('padre1', ['mafia'], 'morador', 45, null, 3, {
+      a: { from: () => 'morador', text: () => 'Don, as irmãs da padaria do convento não conseguem pagar o pizzo. Peço caridade, em nome de Deus.',
+        opts: () => [
+          { l: 'Perdoar as irmãs', fx() { addKarma(8); addRel('morador', 12); cset('padre1', 'perdoou'); return { say: 'Que Deus abençoe a sua casa.', end: 1 }; } },
+          { l: 'Todos pagam, padre', fx(g) { g.money += 500; addKarma(-8); addRel('morador', -10); cset('padre1', 'cobrou'); return { say: 'Rezarei por você.', end: 1 }; } },
+        ] },
+    }),
+    CH('padre2', ['mafia'], 'morador', 50, 'padre1', 3, {
+      a: { from: () => 'morador', text: () => `Festa de Santa Rosalia: a família que carrega o andor ganha o respeito de Palermo. São ${fmt(3000)} em doações.`,
+        opts: () => [
+          { l: `Carregar o andor (${fmt(3000)})`, fx(g) { if (!pay(g, 3000)) return { say: 'Fica para o ano que vem.', end: 1 }; allLoy(6); addKarma(6); addXP(80); cset('padre2', 'andor'); return { say: 'Palermo inteira viu a sua família na procissão.', end: 1 }; } },
+          { l: `Doar em silêncio (${fmt(3000)})`, fx(g) { if (!pay(g, 3000)) return { say: 'Fica para o ano que vem.', end: 1 }; allLoy(4); addKarma(10); cset('padre2', 'silencio'); return { say: 'Deus vê o que os homens não veem.', end: 1 }; } },
+        ] },
+    }),
+    CH('padre3', ['mafia'], 'morador', 40, 'padre2', 3, {
+      a: { from: () => 'morador', text: () => kBad() ? 'Don, não posso mais calar. Na missa de domingo vou falar contra a violência da sua família.' : 'Na missa de domingo, falei da generosidade da sua família. A cidade inteira ouviu.',
+        opts: () => kBad() ? [
+          { l: 'Respeito a sua palavra, padre', fx(g) { addKarma(15); g.heat = Math.min(100, g.heat + 5); cset('padre3', 'respeitou'); return { say: 'Talvez ainda haja esperança para você.', end: 1 }; } },
+          { l: 'Salvo, vá conversar com o padre', fx(g) { addKarma(-15); addRel('morador', -40); g.heat = Math.min(100, g.heat + 20); cset('padre3', 'ameacou'); return { say: 'O padre foi transferido para longe. Palermo inteira comentou.', end: 1 }; } },
+        ] : [
+          { l: 'Grazie, padre', fx(g) { allLoy(8); g.heat = Math.max(0, g.heat - 15); cset('padre3', 'missa'); return { say: 'Que a paz esteja com a sua família.', end: 1 }; } },
+        ] },
+    }),
+  ];
+}
+
 const STORIES = [
   {
     id: 'x9', min: 0, weight: 3,
@@ -439,6 +668,45 @@ const STORIES = [
       },
     },
   },
+  // ---------- fama: traição quando o chefe é temido, voluntários quando é querido ----------
+  {
+    id: 'traidor', min: 2, weight: 5, need: () => kBad() && owned(0).length >= 3,
+    init(d) { const g = S.G, z = owned(0).filter(i => i !== g.base).sort((a, b) => g.d[a].l - g.d[b].l)[0]; if (z == null) return false; const r = S.M.adj[z].map(j => g.d[j].o).filter(o => o > 0 && g.f[o - 1].alive); d.z = z; d.r = r.length ? r[0] - 1 : strongest(); return d.r != null; },
+    steps: {
+      a: {
+        from: () => 'olheiro',
+        text: d => T({ policia: `Comandante, tem policial da equipe de ${zn(d.z)} passando informação para ${rivalName(d.r)}. Vi o carro deles lá duas vezes.`, mafia: `Don, c'è un traditore em ${zn(d.z)}. Alguém da família está conversando com ${rivalName(d.r)}.`, default: `Chefe, tem gente nossa em ${zn(d.z)} de papo com ${rivalName(d.r)}. Vi o carro deles lá duas vezes. O povo tem medo de você e alguém viu nisso uma chance.` }),
+        opts: d => [
+          { l: `Investigar e cortar o mal pela raiz (${fmt(1000)})`, fx(g) { if (!pay(g, 1000)) return { say: 'Sem dinheiro pra investigar.', next: 'b', delay: 1 }; if (Math.random() < .7) { g.d[d.z].l = clamp(g.d[d.z].l + 5, 0, 100); addXP(60); return { say: 'Achamos o traidor a tempo. A área continua nossa.', end: 1 }; } return { say: 'Chegamos tarde...', next: 'b', delay: 0 }; } },
+          { l: 'Mandar mais gente pra lá', fx(g) { const n = Math.min(g.reserve, 6); g.reserve -= n; g.d[d.z].t += n; if (Math.random() < .55) return { say: `Mandei ${n}. Com mais olhos lá, o traidor não teve coragem.`, end: 1 }; return { say: `Mandei ${n}, mas o estrago já tava feito.`, next: 'b', delay: 1 }; } },
+          { l: 'É fofoca. Deixa', fx: () => ({ say: 'Você que sabe.', next: 'b', delay: 1 }) },
+        ],
+        timeout(g, d) { betray(g, d); },
+      },
+      b: {
+        from: () => 'olheiro',
+        text: d => { betray(S.G, d); return `${zn(d.z)} virou a casaca e entregou a área para ${rivalName(d.r)}.`; },
+        opts: () => [{ l: 'Isso não fica assim', fx: () => ({ say: 'Anota o nome de todo mundo.', end: 1 }) }],
+        timeout() {},
+      },
+    },
+  },
+  {
+    id: 'voluntarios', min: 3, weight: 4, need: () => kGood() && owned(0).length >= 1,
+    init(d) { d.z = pick(owned(0)); return true; },
+    steps: {
+      a: {
+        from: () => 'morador',
+        text: d => T({ policia: `Comandante, jovens de ${zn(d.z)} querem ajudar a polícia: vigiar a rua, avisar movimento estranho. Dizem que confiam no senhor.`, mafia: `Don, os rapazes de ${zn(d.z)} querem servir a família. Dizem que o senhor é um homem justo.`, default: `Os jovens de ${zn(d.z)} querem entrar pra firma. Dizem que você é diferente, que cuida do povo.` }),
+        opts: d => [
+          { l: 'Aceitar e treinar', fx(g) { const n = RI(5, 8); g.d[d.z].t += n; g.d[d.z].l = clamp(g.d[d.z].l + 5, 0, 100); addXP(40); return { say: `+${n} em ${zn(d.z)}, sem custo. O povo tá do seu lado.`, end: 1 }; } },
+          { l: 'Melhor eles estudarem', fx(g) { addKarma(4); allLoy(3); return { say: 'As mães agradeceram. A lealdade subiu em todas as áreas.', end: 1 }; } },
+        ],
+      },
+    },
+  },
+  // ---------- histórias em cadeia (avançam com a confiança no contato) ----------
+  ...chainStories(),
 ];
 
 function guess(g, d, i) {
@@ -626,7 +894,7 @@ export function dayStart() {
   objTick(false);
   if (g.story && !g.story.mid && g.story.due <= g.day) sendStep();
   else if (!g.story && g.day >= 3 && g.day - (g.lastStory || 0) >= 2 && Math.random() < .55) {
-    const c = STORIES.filter(s => g.rank >= s.min && (s.max == null || g.rank <= s.max) && (!s.modes || s.modes.includes(g.mode)) && !(g.played || []).slice(-4).includes(s.id) && !(s.once && (g.played || []).includes(s.id)));
+    const c = STORIES.filter(s => g.rank >= s.min && (s.max == null || g.rank <= s.max) && (!s.modes || s.modes.includes(g.mode)) && !(g.played || []).slice(-4).includes(s.id) && !(s.once && (g.played || []).includes(s.id)) && (!s.need || s.need()));
     const tot = sum(c.map(s => s.weight)); let r = Math.random() * tot, s = c[0];
     for (const x of c) { r -= x.weight; if (r <= 0) { s = x; break; } }
     const data = {};

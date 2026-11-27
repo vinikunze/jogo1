@@ -120,7 +120,7 @@ const VIEWS = [['dom', 'Domínio'], ['atk', 'Ataque'], ['loy', 'Lealdade'], ['in
 function renderViews() {
   const g = S.G, ph = g.phase === 'setup';
   $('#views').classList.toggle('hide', ph); $('#legend2').classList.toggle('hide', ph && false);
-  $('#views').innerHTML = VIEWS.map(([k, l]) => `<button data-view="${k}" class="${MAP.view === k ? 'on' : ''}">${l}</button>`).join('');
+  $('#views').innerHTML = VIEWS.map(([k, l]) => `<button data-view="${k}" class="${MAP.view === k ? 'on' : ''}">${l}</button>`).join('') + `<button class="leg-t" data-leg="1" aria-label="Legenda">?</button>`;
   const L = {
     dom: [[S.MD.color, 'Você'], ...g.f.filter(f => f.alive).map(f => [f.color, f.name]), ['#2a2d35', 'Sem dono'], ['#5fd48a', 'Contorno: chance de ataque']],
     atk: [['#5fd48a', 'Quase certa'], ['#b6e36b', 'Boa'], ['#f0cf5a', 'Equilibrada'], ['#ff9a52', 'Arriscada'], ['#ff5b4f', 'Suicídio'], ['#000', 'Fora de alcance']],
@@ -155,7 +155,7 @@ function jailCard() {
   return `<div class="career" style="background:rgba(255,91,79,.08);border-color:rgba(255,91,79,.35)"><small class="note">${S.MD.budget ? 'Afastado' : 'Preso'} até o dia ${g.jail.until}</small><br><strong style="font-size:17px">Seu braço direito comanda os ataques. Você segue no celular.</strong>
     <button class="ghost btn act" data-a="lawyer" style="margin:10px 0 0" ${g.money >= 5000 ? '' : 'disabled'}><span>Pagar o advogado<small>Corta o tempo pela metade</small></span><em>${fmt(5000)}</em></button></div>`;
 }
-let bcat = 'neg';
+let bcat = 'neg', legOpen = false;
 function buildBox(i) {
   const g = S.G, d = g.d[i], sl = E.slotsOf(i), built = bOf(i), cb = can('build'), sv = E.srvInc(i);
   let h = `<h4>Construções ${d.b.length}/${sl}${sv ? ` · serviços rendem ${fmt(sv)}/dia` : ''}</h4>`;
@@ -322,7 +322,7 @@ function threads() {
   return Object.entries(by).sort((a, b) => b[1][b[1].length - 1].id - a[1][a[1].length - 1].id);
 }
 function renderPhone() {
-  const el = $('#phone'); el.classList.toggle('hide', !phone.open); if (!phone.open) return;
+  const el = $('#phone'); el.classList.toggle('hide', !phone.open); document.body.classList.toggle('ph-open', phone.open); if (!phone.open) return;
   const g = S.G, scr = $('#scr'), ur = unread(), sp = skillPoints();
   const sbar = `<div class="sbar"><span>Dia ${g.day}</span><span class="notch"></span><span>21:40 · 87%</span></div>`;
   let h = '';
@@ -426,7 +426,7 @@ function doEndDay() {
     ${P ? `<span class="chip" style="color:${dv >= 0 ? 'var(--ok)' : 'var(--bad)'}">${dv >= 0 ? '▲' : '▼'} ${fmt(Math.abs(dv))} vs ontem</span>` : ''}</div>
     ${S.G.hist.length > 1 ? plChart(S.G.hist.slice(-10), 320, 90) : ''}
     <p class="note">Caixa agora: <b style="color:var(--ink)">${fmt(S.G.money)}</b> · ${S.G.acts} ações para o dia ${S.G.day}</p>
-    <ul class="rep">${rep.map(([c, t, v]) => `<li><span>${esc(t)}</span><b style="color:${c === 'good' ? 'var(--ok)' : 'var(--bad)'}">${esc(v)}</b></li>`).join('')}</ul>
+    <ul class="rep">${rep.map(([c, t, v]) => `<li><span>${esc(t)}</span><b style="color:${c === 'good' ? 'var(--ok)' : c === 'info' ? 'var(--mu)' : 'var(--bad)'}">${esc(v)}</b></li>`).join('')}</ul>
     ${n ? `<div class="row"><button class="ghost btn" data-g="close">Ver o mapa</button><button class="gold btn" data-g="zapnow">${n} mensage${n > 1 ? 'ns' : 'm'} no celular</button></div>` : `<button class="gold btn" data-g="close">Começar dia ${S.G.day}</button>`}`);
   if ($('#dlg').classList.contains('hide')) nextDlg();
   if (n) sfx.ping();
@@ -488,6 +488,7 @@ document.addEventListener('click', async e => {
   if (D.cont) { if (await resume(D.cont)) enterGame(); return; }
   if (D.tab) { const p = $('#panel'); if (mob() && D.tab === tab && !p.classList.contains('min')) p.classList.add('min'); else { p.classList.remove('min'); tab = D.tab; } sfx.click(); return renderPanel(); }
   if (D.learn) { if (E.learn(D.learn)) { $('#treeOv .tbox').innerHTML = treeHTML(); refresh(); } return; }
+  if (D.leg) { legOpen = !legOpen; $('#legend2').classList.toggle('open', legOpen); return; }
   if (D.bcat) { bcat = D.bcat; sfx.click(); return renderPanel(); }
   if (D.view) { MAP.setView(D.view); sfx.click(); return renderViews(); }
   if (D.sel) { S.sel = +D.sel; if (S.G.phase === 'play' && S.G.d[S.sel].o !== 0) E.tut('look'); MAP.focusOn(S.sel, true); tab = 'z'; return refresh(); }

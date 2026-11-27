@@ -351,3 +351,6 @@ button.link{background:none;border:0;color:var(--mu);font:inherit;font-size:12px
 .nday p{margin:6px 0 0;padding:8px 10px;border-radius:10px;background:rgba(255,255,255,.04);font-size:13.5px;line-height:1.4;border-left:3px solid rgba(255,255,255,.15)}
 .nday p.good{border-left-color:var(--ok)}.nday p.bad{border-left-color:var(--bad)}.nday p.ev{border-left-color:var(--g1);color:var(--g1)}
 @media (min-width:761px){.hud{flex-wrap:nowrap}.brand{flex:none}.stats{min-width:0;flex:0 1 auto;overflow-x:auto;scrollbar-width:none}.stats::-webkit-scrollbar{display:none}}
+.views .leg-t{display:none}
+@media (max-width:760px){.legend2{display:none}.legend2.open{display:flex}.views .leg-t{display:inline-block;min-width:34px}}
+@media (min-width:761px){body.ph-open #res{left:24px;transform:translate(0,-14px)}body.ph-open #res.on{transform:translate(0,0)}}
