@@ -1,5 +1,6 @@
 // Regras do jogo: estado, combate, economia, carreira, mensagens, IA e eventos.
 import { ZT, XP, UNLOCK, SKILLS, MODES, ACH, TIERS, RIVAL_STR, FINALS, SRV_P, BLV } from './data.js';
+import { TREES } from './tree.js';
 
 export const S = { G: null, M: null, MD: null, sel: null, flash: null, on: {} };
 const DATA_V = '4';
@@ -73,11 +74,34 @@ const G = () => S.G, M = () => S.M, MD = () => S.MD;
 export const owned = o => { const a = []; for (let i = 0; i < S.M.N; i++) if (S.G.d[i].o === o) a.push(i); return a; };
 export const colorOf = o => o === 0 ? S.MD.color : o > 0 ? S.G.f[o - 1].color : '#6c6f78';
 export const oname = o => o === 0 ? S.G.pname : o > 0 ? S.G.f[o - 1].name : 'Sem dono';
-export const sk = id => !!S.G.skills[id];
+let fxc = { k: '', s: new Set() };
+const treeFx = () => { const g = S.G, t = Object.keys(g.tree || {}), k = g.mode + t.join(','); if (fxc.k !== k) { const T = TREES[g.mode]; fxc = { k, s: new Set(t.flatMap(id => (T.nodes.find(n => n.id === id) || { fx: [] }).fx)) }; } return fxc.s; };
+export const sk = id => !!(S.G.skills[id] || treeFx().has(id));
+export const tree = () => TREES[S.G.mode];
+export const karma = () => S.G.karma || 0;
+export function addKarma(n) { const g = S.G; g.karma = clamp((g.karma || 0) + n, -100, 100); }
+export const charOf = () => { const k = karma(), T = tree(); return k >= 30 ? [T.good, 'good'] : k <= -30 ? [T.bad, 'bad'] : ['Sem fama definida', 'neu']; };
+export const kGood = () => karma() >= 30, kBad = () => karma() <= -30;
+export const bCost = b => Math.round(b.cost * (sk('build') ? .8 : 1));
+export function nodeState(n) {
+  const g = S.G, have = !!(g.tree || {})[n.id], T = tree();
+  if (have) return 'have';
+  if (n.pair && (g.tree || {})[n.pair]) return 'blocked';
+  const own = id => !!(g.tree || {})[id];
+  const pre = n.t === 1 ? true : n.t === 4 ? T.nodes.some(x => x.b === n.b && x.t === 3 && own(x.id)) : T.nodes.some(x => x.b === n.b && x.t === n.t - 1 && own(x.id));
+  if (!pre) return 'pre';
+  if (g.rank < n.min) return 'rank';
+  return skillPoints() >= n.cost ? 'can' : 'pts';
+}
+export function learn(id) {
+  const g = S.G, n = tree().nodes.find(x => x.id === id); if (!n || nodeState(n) !== 'can') return false;
+  g.tree = g.tree || {}; g.tree[id] = 1; if (n.al) addKarma(n.al);
+  emit('toast', 'Habilidade aprendida', n.n + (n.al > 0 ? '. O povo vai lembrar disso.' : n.al < 0 ? '. Vão falar de você com medo.' : '.'), n.al < 0 ? 'bad' : 'good'); emit('sfx', 'cash'); saveGame(); return true;
+}
 export const rankName = (r = S.G.rank) => S.MD.ranks[r];
 export const can = key => S.G.rank >= UNLOCK.findIndex(u => u.key === key);
 export const unlockRank = key => UNLOCK.findIndex(u => u.key === key);
-export const skillPoints = () => S.G.rank + 1 + (S.G.bonusSP || 0) + Math.floor(Math.max(0, S.G.xp - XP[5]) / 700) - Object.keys(S.G.skills).length;
+export const skillPoints = () => S.G.rank + 1 + (S.G.bonusSP || 0) + Math.floor(Math.max(0, S.G.xp - XP[5]) / 700) - Object.keys(S.G.skills).length - sum(Object.keys(S.G.tree || {}).map(id => (tree().nodes.find(n => n.id === id) || { cost: 1 }).cost));
 export const pTroops = () => S.G.reserve + sum(owned(0).map(i => S.G.d[i].t));
 export function pq() { const g = S.G, T = pTroops(); if (!T) return 1; const f = Math.min(g.rif, T), p = Math.min(g.pis, T - f); return (1.8 * f + 1.1 * p + .6 * (T - f - p)) / T; }
 export const qOf = o => o === 0 ? pq() : o > 0 ? S.G.f[o - 1].q : .95;
@@ -95,10 +119,10 @@ export const jailed = () => S.G.jail && S.G.jail.until >= S.G.day;
 export const lvOf = (i, id) => ((S.G.d[i].lv || {})[id]) || 1;
 export const slotsOf = i => ZT[S.M.type[i]].slots || 4;
 export const srvP = (i, id) => ((S.G.d[i].sp || {})[id]) ?? 1;
-export const upCost = (b, lv) => Math.round(b.cost * [0, 1.2, 1.8][lv]);
+export const upCost = (b, lv) => Math.round(b.cost * [0, 1.2, 1.8][lv] * (sk('build') ? .8 : 1));
 const popOf = i => clamp(S.M.val[i] / 420, .6, 2);
-export const srvInc = i => S.G.d[i].o !== 0 ? 0 : Math.round(sum(bOf(i).filter(b => b.eff.srv).map(b => b.eff.srv * BLV[lvOf(i, b.id) - 1] * SRV_P[srvP(i, b.id)][1] * popOf(i) * (.7 + .6 * S.G.d[i].l / 100))));
-export const srvEst = (i, b, lv = 1, p = 1) => Math.round(b.eff.srv * BLV[lv - 1] * SRV_P[p][1] * popOf(i) * (.7 + .6 * S.G.d[i].l / 100));
+export const srvInc = i => S.G.d[i].o !== 0 ? 0 : Math.round((sk('srv') ? 1.25 : 1) * sum(bOf(i).filter(b => b.eff.srv).map(b => b.eff.srv * BLV[lvOf(i, b.id) - 1] * SRV_P[srvP(i, b.id)][1] * popOf(i) * (.7 + .6 * S.G.d[i].l / 100))));
+export const srvEst = (i, b, lv = 1, p = 1) => Math.round((sk('srv') ? 1.25 : 1) * b.eff.srv * BLV[lv - 1] * SRV_P[p][1] * popOf(i) * (.7 + .6 * S.G.d[i].l / 100));
 const srvLoy = i => sum(bOf(i).filter(b => b.eff.srv).map(b => SRV_P[srvP(i, b.id)][2]));
 export const allEff = k => sum(owned(0).map(i => beff(i, k)));
 export const beff = (i, k) => sum(bOf(i).map(b => (b.eff[k] || 0) * BLV[lvOf(i, b.id) - 1])) + (S.G.d[i].o === 0 && tenOf(i) ? (TEN[tenOf(i).s].eff[k] || 0) : 0);
@@ -113,6 +137,7 @@ export function incOf(i, asOwner = 0) {
   const tx = [.7, 1, 1.35][d.tx ?? 1];
   let v = S.M.val[i] * .85 * (S.MD.inc[t] || 1) * tx * (.6 + .8 * d.l / 100) * ((d.c || 0) >= S.G.day ? .5 : 1) + beff(i, 'inc');
   if (S.MD.budget) v *= .4;
+  v *= (sk('tax') ? 1.25 : 1) * (kBad() ? 1.1 : 1);
   return Math.round(v + srvInc(i));
 }
 export const pIncome = () => sum(owned(0).map(i => incOf(i))) + (S.MD.budget ? S.MD.budget + 110 * owned(0).length : 0);
@@ -123,9 +148,9 @@ export const truceWith = o => o > 0 && (S.G.f[o - 1].truce || 0) >= S.G.day;
 export const reach = i => { const d = S.G.d[i]; return d.o !== 0 && !truceWith(d.o) && S.M.adj[i].some(j => S.G.d[j].o === 0); };
 export const underdog = () => { const g = S.G, n = owned(0).length; return g.day >= 15 && n > 0 && n / S.M.N < .2; };
 export const recruitCost = () => Math.round((sk('rec') ? 450 : 600) * modv('rec') * (underdog() ? .6 : 1) * (1 - Math.min(.25, allEff('rec'))) * (owned(0).filter(i => S.M.type[i] === 'comunidade').length >= 2 ? .85 : 1));
-export const bribeCost = () => Math.round((400 + 20 * S.G.heat) * (hasType('centro', 'capitale') ? .7 : 1) * (1.2 - rel('politico') / 100 * .4));
+export const bribeCost = () => Math.round((sk('bribe') ? .6 : 1) * (400 + 20 * S.G.heat) * (hasType('centro', 'capitale') ? .7 : 1) * (1.2 - rel('politico') / 100 * .4));
 export const heatMul = () => (sk('heat') ? .7 : 1) * modv('heat');
-export const pAtkMul = () => (underdog() ? 1.1 : 1) * (sk('atk') ? 1.15 : 1) * (S.G.perk && S.G.perk.vet ? 1.1 : 1) * (finOn() && S.G.fin.opt === 'atk' ? 1.2 : 1);
+export const pAtkMul = () => (sk('fear') ? 1.1 : 1) * (kBad() ? 1.08 : 1) * (underdog() ? 1.1 : 1) * (sk('atk') ? 1.15 : 1) * (S.G.perk && S.G.perk.vet ? 1.1 : 1) * (finOn() && S.G.fin.opt === 'atk' ? 1.2 : 1);
 export const goal = 1;
 export function intelAt(i) { return owned(0).some(j => (j === i || S.M.adj[j].includes(i)) && beff(j, 'intel') > 0); }
 export const visible = i => S.G.d[i].o === 0 || sk('intel') || (S.G.seen[i] || 0) >= S.G.day || intelAt(i);
@@ -136,7 +161,7 @@ export function est(i) {
 export function estDef(i) { if (visible(i)) return defVal(i); const [a, b] = est(i), t = S.G.d[i].t; return defVal(i) * ((a + b) / 2) / Math.max(.5, t); }
 export const odds = r => r > 1.5 ? ['Vitória quase certa', '#5fd48a'] : r > 1.15 ? ['Boa chance', '#b6e36b'] : r > .9 ? ['Equilibrado', '#f0cf5a'] : r > .6 ? ['Arriscado', '#ff9a52'] : ['Suicídio', '#ff5b4f'];
 export const atkPow = n => n * pq() * pAtkMul();
-export const storage = () => 300 + sum(owned(0).map(i => beff(i, 'stor')));
+export const storage = () => Math.round((300 + sum(owned(0).map(i => beff(i, 'stor')))) * (sk('stor') ? 1.5 : 1));
 export const comLevel = i => ZT[S.M.type[i]].com * S.M.mult[i];
 export const comLabel = v => v >= 1.45 ? ['Forte', '#5fd48a'] : v >= 1 ? ['Médio', '#f0cf5a'] : ['Fraco', '#ff9a52'];
 export const priceOf = (id, tier = S.G.pt[id]) => { const gd = S.MD.goods.find(x => x.id === id); return Math.round(gd.ref * TIERS[tier][1] * (sk('trade') ? 1.1 : 1)); };
@@ -392,7 +417,7 @@ const MA = {
 };
 
 // ---------- carreira ----------
-export function addXP(n) { S.G.xp += Math.round(n); }
+export function addXP(n) { S.G.xp += Math.round(n > 0 && sk('xp') ? n * 1.2 : n); }
 export function checkRank() {
   const g = S.G;
   while (g.rank < 5 && g.xp >= XP[g.rank + 1]) {
@@ -430,7 +455,7 @@ export function fight(att, n, i, bonus = 1) {
 export function loseWeapons(c) { const g = S.G, T = pTroops() + c; if (!T || c <= 0) return; g.rif = Math.max(0, g.rif - Math.round(c * g.rif / T)); g.pis = Math.max(0, g.pis - Math.round(c * g.pis / T)); }
 function conquer(i, o, surv) {
   const g = S.G, prev = g.d[i].o, d = g.d[i];
-  d.o = o; d.t = surv; d.b = d.b.filter(() => Math.random() < .5); d.l = o === 0 ? (S.M.type[i] === 'comunidade' ? 30 : 38) : 50; d.tx = 1; d.c = S.G.day + 3;
+  d.o = o; d.t = surv; d.b = d.b.filter(() => Math.random() < .5); d.l = o === 0 ? (sk('fear') ? 45 : S.M.type[i] === 'comunidade' ? 30 : 38) : 50; d.tx = 1; d.c = S.G.day + 3;
   if (prev > 0 && g.f[prev - 1].alive && !owned(prev).length) { g.f[prev - 1].alive = false; if (o === 0) g.stats.killed = 1; log(`${g.f[prev - 1].name} foi varrido do mapa.`, o === 0 ? 'good' : ''); }
   if (o === 0 && S.MD.budget && prev > 0) { const q = RI(5, 14); g.stock.apreensao = (g.stock.apreensao || 0) + q; }
 }
@@ -459,7 +484,7 @@ export const A = {
   build(id) {
     if (jailed()) { emit('toast', 'Você está preso', 'Daqui de dentro não dá para construir.', 'bad'); return; }
     const g = S.G, i = S.sel, d = g.d[i], b = S.MD.builds.find(x => x.id === id);
-    if (!can('build') || !b || d.o !== 0 || d.b.length >= slotsOf(i) || d.b.includes(id) || !spend(b.cost, true)) return;
+    if (!can('build') || !b || d.o !== 0 || d.b.length >= slotsOf(i) || d.b.includes(id) || !spend(bCost(b), true)) return;
     d.b.push(id); d.lv = d.lv || {}; d.lv[id] = 1; g.stats.built++; addXP(10); tut('build'); emit('sfx', 'cash'); emit('toast', 'Construído', `${b.name} em ${zname(i)}.`, 'good'); log(`${b.name} construído em ${zname(i)}.`, 'good');
   },
   up(id) {
@@ -485,7 +510,7 @@ export const A = {
     g.heat = Math.min(100, g.heat + (S.MD.budget ? Math.round((r.aLoss + r.dLoss) / 2) + 3 : (S.MD.heatAtk + (S.M.val[i] >= 500 ? 4 : 0)) * heatMul()));
     g.seen[i] = g.day + 2;
     emit('arrow', from, i); emit('sfx', 'shots');
-    if (r.win) { conquer(i, 0, n - r.aLoss); g.stats.won++; if (S.hooks && S.hooks.win) S.hooks.win(i); S.flash = i; loseWeapons(r.aLoss); addXP(40); log(`Você tomou ${zname(i)} de ${pn}. Perdeu ${r.aLoss}.`, 'good'); emit('result', 'Vitória', `${zname(i)} é seu. Baixas: ${r.aLoss} ${S.MD.unit}.`, 'good'); }
+    if (r.win) { conquer(i, 0, n - r.aLoss); g.stats.won++; if (sk('loot')) { const lt = Math.round(300 + S.M.val[i] * .4); g.money += lt; g.extra = (g.extra || 0) + lt; addKarma(-2); emit('toast', 'Saque', `+${fmt(lt)} em ${zname(i)}.`, 'good'); } if (S.hooks && S.hooks.win) S.hooks.win(i); S.flash = i; loseWeapons(r.aLoss); addXP(40); log(`Você tomou ${zname(i)} de ${pn}. Perdeu ${r.aLoss}.`, 'good'); emit('result', 'Vitória', `${zname(i)} é seu. Baixas: ${r.aLoss} ${S.MD.unit}.`, 'good'); }
     else { g.reserve += n - r.aLoss; d.t -= r.dLoss; g.stats.lost++; loseWeapons(r.aLoss); addXP(10); log(`Ataque em ${zname(i)} falhou. Perdeu ${r.aLoss}, derrubou ${r.dLoss}.`, 'bad'); emit('result', 'Recuou', `Perdeu ${r.aLoss} ${S.MD.unit} e derrubou ${r.dLoss}.`, 'bad'); }
     checkRank(); checkAch(); checkEnd();
   },
@@ -638,7 +663,7 @@ function sales(rep) {
   return { ven, cmv, lost };
 }
 function loyaltyTick(rep) {
-  const g = S.G, aloy = allEff('aloy');
+  const g = S.G, aloy = allEff('aloy') + (sk('aloy') ? 1 : 0) + (kGood() ? .5 : 0) - (sk('tax') ? .5 : 0) - (kBad() ? .3 : 0);
   for (const i of owned(0)) {
     const d = g.d[i];
     let dl = (50 - d.l) * .04 + (beff(i, 'loy') + aloy) * (sk('loy') ? 1.5 : 1) + srvLoy(i) + [2, 0, -3][d.tx ?? 1] - (g.heat > 70 ? 1 : 0) + (rel('morador') >= 70 ? 1 : rel('morador') <= 25 ? -1 : 0);
@@ -651,7 +676,7 @@ function loyaltyTick(rep) {
 }
 function events(rep) {
   const g = S.G, mine = owned(0);
-  if (Math.random() < g.heat / 150 * modv('raid') * (1 - Math.min(.45, allEff('raid'))) * (g.arrego && g.arrego.until >= g.day ? .4 : 1) * ((g.cops || 0) >= g.day ? 1.5 : 1) && mine.length) {
+  if (Math.random() < g.heat / 150 * modv('raid') * (1 - Math.min(.45, allEff('raid'))) * (sk('raid') ? .75 : 1) * (kGood() ? .8 : 1) * (g.arrego && g.arrego.until >= g.day ? .4 : 1) * ((g.cops || 0) >= g.day ? 1.5 : 1) && mine.length) {
     const i = mine.reduce((a, b) => g.d[b].t > g.d[a].t ? b : a), l = Math.round(g.d[i].t * R(.3, .55)), m = Math.max(0, Math.round(g.money * .1));
     g.d[i].t -= l; g.money -= m; g.heat = Math.max(0, g.heat - 10); loseWeapons(l); g.d[i].l = clamp(g.d[i].l - 5, 0, 100);
     let lost = 0; for (const gd of S.MD.goods) { if (gd.buy) { const s = Math.round(g.stock[gd.id] * .4); g.stock[gd.id] -= s; lost += s; } }
@@ -676,7 +701,8 @@ function events(rep) {
 }
 export function arrest(rep, base) {
   const g = S.G; if (jailed() || g.day < 4) return;
-  const days = base + RI(0, 2); g.jail = { from: g.day, until: g.day + days };
+  if (sk('jail') && Math.random() < .5) return;
+  const days = sk('jail') ? Math.ceil((base + RI(0, 2)) / 2) : base + RI(0, 2); g.jail = { from: g.day, until: g.day + days };
   const pol = S.MD.budget;
   log(pol ? `${g.nick} foi afastado pela corregedoria por ${days} dias.` : `${g.nick} foi preso. Fica ${days} dias lá dentro.`, 'bad');
   rep && rep.push(['bad', pol ? 'Você foi afastado do comando' : 'Você foi preso', `${days} dias`]);

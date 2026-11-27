@@ -66,7 +66,7 @@ S.on = {
     newMsgs++;
     if (!batching && !m.quiet) { const c = contactById(m.c); result('Nova mensagem', `${c.name}: ${m.t.slice(0, 70)}${m.t.length > 70 ? '…' : ''}`, 'good'); sfx.ping(); }
   },
-  rankup: (r, u) => dialog(`<h2 style="color:var(--g1)">Promovido: ${esc(S.MD.ranks[r])}</h2><p class="note">Você subiu de cargo e ganhou 1 ponto de habilidade.</p><ul class="rep"><li><span>Liberado</span><b style="color:var(--ok)">${esc(u.label)}</b></li></ul><div class="row"><button class="ghost btn" data-g="close">Fechar</button><button class="gold btn" data-g="career">Ver carreira</button></div>`),
+  rankup: (r, u) => dialog(`<h2 style="color:var(--g1)">Promovido: ${esc(S.MD.ranks[r])}</h2><p class="note">Você subiu de cargo e ganhou 1 ponto de habilidade.</p><ul class="rep"><li><span>Liberado</span><b style="color:var(--ok)">${esc(u.label)}</b></li></ul><div class="row"><button class="ghost btn" data-g="close">Fechar</button><button class="gold btn" data-g="tree">Usar o ponto</button></div>`),
   ach: a => { result('Conquista', `${a.name}: ${a.desc}`, 'good'); sfx.win(); },
   jail: days => dialog(`<h2 style="color:var(--bad)">${S.MD.budget ? 'Afastado do comando' : 'Você foi preso'}</h2><p class="note">${S.MD.budget ? 'A corregedoria te afastou' : 'A operação te pegou'} por ${days} dias. Enquanto isso o seu braço direito comanda os ataques. Pelo celular você ainda fala com todo mundo, compra e vende. O advogado pode cortar o tempo pela metade.</p><button class="gold btn" data-g="close">Entendi</button>`),
   cityEvent: c => dialog(`<h2 style="color:var(--g1)">${esc(c.name)}</h2><p class="note">${esc(c.text)}</p><p class="note">Vale até o dia ${c.until}.</p><button class="gold btn" data-g="close">Entendi</button>`),
@@ -159,9 +159,21 @@ function buildBox(i) {
   if (!cats.includes(bcat)) bcat = cats[0];
   h += `<h4>Construir aqui</h4><div class="seg cats">${cats.map(c => `<button data-bcat="${c}" class="${bcat === c ? 'on' : ''}">${esc(BCAT[c].replace('Serviços para o morador', 'Serviços'))}</button>`).join('')}</div>`;
   if (bcat === 'srv') h += `<p class="note" style="margin:0 0 8px">Serviços são cobrados do morador. Você escolhe o preço: barato agrada, caro rende mais e irrita.</p>`;
-  h += av.filter(b => b.cat === bcat).map(b => `<button class="ghost btn act" data-a="build" data-n="${b.id}" ${g.acts && g.money >= b.cost ? '' : 'disabled'}><span>${esc(b.name)}<small>${b.cat === 'srv' ? `${esc(b.desc)}. Aqui rende cerca de ${fmt(E.srvEst(i, b))}/dia` : esc(b.desc)}</small></span><em>${fmt(b.cost)} · 1 ação</em></button>`).join('');
+  h += av.filter(b => b.cat === bcat).map(b => `<button class="ghost btn act" data-a="build" data-n="${b.id}" ${g.acts && g.money >= E.bCost(b) ? '' : 'disabled'}><span>${esc(b.name)}<small>${b.cat === 'srv' ? `${esc(b.desc)}. Aqui rende cerca de ${fmt(E.srvEst(i, b))}/dia` : esc(b.desc)}</small></span><em>${fmt(E.bCost(b))} · 1 ação</em></button>`).join('');
   return h;
 }
+function treeHTML() {
+  const g = S.G, T = E.tree(), pts = skillPoints(), [cl, ck] = E.charOf(), k = E.karma();
+  const lab = (n, st) => ({ have: 'Aprendida', can: `Aprender · ${n.cost} ponto${n.cost > 1 ? 's' : ''}`, pts: `Precisa de ${n.cost} ponto${n.cost > 1 ? 's' : ''}`, rank: `Libera no cargo ${S.MD.ranks[n.min]}`, pre: 'Aprenda a anterior', blocked: 'Caminho fechado' })[st];
+  const node = n => { const st = E.nodeState(n); return `<button class="tnode st-${st} ${n.al > 0 ? 'al-g' : n.al < 0 ? 'al-b' : ''}" data-learn="${n.id}" ${st === 'can' ? '' : 'disabled'}>${n.al ? `<i class="tag">${n.al > 0 ? 'bom caráter' : 'mau caráter'}</i>` : ''}<b>${esc(n.n)}</b><small>${esc(n.d)}</small><em>${lab(n, st)}</em></button>`; };
+  const cols = T.br.map((bn, b) => `<div class="tcol"><h4>${esc(bn)}</h4>${[1, 2, 3, 4].map(t => { const L = T.nodes.filter(n => n.b === b && n.t === t); return `<div class="trow ${L.length > 1 ? 'pair' : ''}">${L.map(node).join('<span class="or">ou</span>')}</div>`; }).join('<span class="lnk"></span>')}</div>`).join('');
+  const leg = Object.keys(g.skills).length ? `<p class="note">Habilidades da versão anterior continuam valendo: ${Object.keys(g.skills).map(id => esc((SKILLS.find(s => s.id === id) || { name: id }).name)).join(', ')}.</p>` : '';
+  return `<div class="thead"><div><h2>Habilidades</h2><p class="note">${pts} ponto${pts === 1 ? '' : 's'} para gastar · ganha 1 por cargo e mais com respeito acima do topo</p></div><button class="ghost btn" data-g="treeclose">Fechar</button></div>
+    <div class="karma"><span>${esc(T.bad)}</span><div class="kbar"><i style="left:${(k + 100) / 2}%"></i></div><span>${esc(T.good)}</span></div>
+    <p class="note" style="text-align:center;margin:6px 0 14px">Fama atual: <b class="k-${ck}">${esc(cl)}</b>. No nível 3 de cada ramo você escolhe um caminho, e ele fecha o outro.${ck === 'good' ? ' Bom caráter: menos operações e o povo mais leal.' : ck === 'bad' ? ' Mau caráter: ataque e arrecadação maiores, povo menos leal.' : ''}</p>
+    ${leg}<div class="tgrid">${cols}</div>`;
+}
+function openTree() { let o = $('#treeOv'); if (!o) { o = document.createElement('div'); o.id = 'treeOv'; o.innerHTML = '<div class="tbox"></div>'; document.body.appendChild(o); } o.querySelector('.tbox').innerHTML = treeHTML(); o.classList.remove('hide'); sfx.click(); }
 function tutCard() {
   if (!E.tutShow()) return '';
   const g = S.G, L = E.tutList(), done = L.filter(x => g.tut.d[x.k]).length;
@@ -241,7 +253,7 @@ function tabZone() {
 }
 function tabCmd() {
   const g = S.G, inc = pIncome(), up = upkeep();
-  let h = finCard() + jailCard() + tutCard() + careerCard() + objCard() + buffList() + `<button class="ghost btn act" data-g="career"><span>Carreira e habilidades</span><em>abrir no celular</em></button>`;
+  let h = finCard() + jailCard() + tutCard() + careerCard() + objCard() + buffList() + `<button class="ghost btn act" data-g="tree"><span>Árvore de habilidades<small>${esc(E.charOf()[0])} · ${skillPoints()} ponto${skillPoints() === 1 ? '' : 's'} livre${skillPoints() === 1 ? '' : 's'}</small></span><em>abrir</em></button><button class="ghost btn act" data-g="career"><span>Carreira e conquistas</span><em>abrir no celular</em></button>`;
   h += `<h4>Loja · sem ação</h4>`;
   h += can('crew') ? `<div class="shop"><button class="ghost" data-a="buy" data-n="sol">${I.sol}<span><b>${esc(S.MD.recruit[0])}</b><small>${esc(S.MD.recruit[1])}</small></span><em>${fmt(recruitCost())}</em></button>` +
     (can('attack') ? `<button class="ghost" data-a="buy" data-n="pis">${I.pis}<span><b>10 pistolas</b><small>Cada ${S.MD.u1} armado bate mais forte</small></span><em>${fmt(600)}</em></button><button class="ghost" data-a="buy" data-n="rif">${I.rif}<span><b>5 fuzis</b><small>O que mais pesa no confronto</small></span><em>${fmt(1800)}</em></button></div><p class="note">Poder da tropa: <b style="color:var(--g1)">x${pq().toFixed(2)}</b>. Sem arma 0,6, pistola 1,1, fuzil 1,8.</p>` : `</div>${lockBox('attack', 'Comprar armas')}`) : lockBox('crew');
@@ -350,7 +362,7 @@ function renderPhone() {
     const nx = g.rank < 5 ? XP[g.rank + 1] : null;
     h = `<div class="ahead"><button class="back" data-app="home" aria-label="Voltar">${I.back}</button><div><b>Carreira</b><small>${g.xp} de respeito${nx ? ` · próximo cargo em ${nx}` : ''}</small></div></div><div class="abody app-pad">
       <h3>Cargos</h3>${S.MD.ranks.map((r, k) => `<div class="rank ${k < g.rank ? 'done' : k === g.rank ? 'cur' : ''}"><span class="n">${k + 1}</span><span><b>${esc(r)}</b><small>${esc(UNLOCK[k].label)} · ${XP[k]} de respeito</small></span></div>`).join('')}
-      <h3>Habilidades · ${skillPoints()} ponto${skillPoints() === 1 ? '' : 's'}</h3>${SKILLS.map(s => { const have = sk(s.id), lockR = g.rank < s.min; return `<div class="skill ${have ? 'have' : ''}"><span><b>${esc(s.name)}</b><small>${esc(s.desc)}${lockR ? ` Libera em ${esc(S.MD.ranks[s.min])}.` : ''}</small></span>${have ? '<span class="chip">Ativa</span>' : `<button class="gold" data-a="skill" data-n="${s.id}" ${skillPoints() > 0 && !lockR ? '' : 'disabled'}>Pegar</button>`}</div>`; }).join('')}
+      <h3>Habilidades · ${skillPoints()} ponto${skillPoints() === 1 ? '' : 's'}</h3><p class="note">Fama: <b>${esc(E.charOf()[0])}</b></p><button class="gold btn" data-g="tree" style="width:100%;margin-bottom:8px">Abrir árvore de habilidades</button>
       <h3>Conquistas · ${Object.keys(g.ach).length}/${ACH.length}</h3><div class="achs">${ACH.map(a => `<div class="ach ${g.ach[a.id] ? 'on' : ''}"><b>${esc(a.name)}</b>${esc(a.desc)}</div>`).join('')}</div></div>`;
   } else if (phone.app === 'nws') {
     h = `<div class="ahead"><button class="back" data-app="home" aria-label="Voltar">${I.back}</button><div><b>Notícias</b><small>Plantão da cidade</small></div></div>
@@ -434,6 +446,8 @@ document.addEventListener('click', async e => {
     if (v === 'sound') { sound = !sound; store.set('ddc.sound', sound); $('#sndBtn').textContent = 'Som: ' + (sound ? 'ligado' : 'desligado'); if (S.G && !$('#game').classList.contains('hide')) renderHUD(); return; }
     if (v === 'phone') { phone.open = !phone.open; phone.app = 'home'; sfx.click(); return refresh(); }
     if (v === 'career') { closeDlg(); return openPhone('car'); }
+    if (v === 'tree') { closeDlg(); return openTree(); }
+    if (v === 'treeclose') { $('#treeOv').classList.add('hide'); return refresh(); }
     if (v === 'zapnow') { closeDlg(); return openPhone('zap'); }
   }
   if (t.closest('[data-app-open]') || D.appOpen) { return openPhone(t.closest('[data-app-open]')?.dataset.appOpen || D.appOpen); }
@@ -443,6 +457,7 @@ document.addEventListener('click', async e => {
   if (D.confirm) { store.del(SAVE + D.confirm); closeDlg(); await newGame(D.confirm); setup = { rank: 0, nick: setup.nick }; return enterGame(); }
   if (D.cont) { if (await resume(D.cont)) enterGame(); return; }
   if (D.tab) { const p = $('#panel'); if (mob() && D.tab === tab && !p.classList.contains('min')) p.classList.add('min'); else { p.classList.remove('min'); tab = D.tab; } sfx.click(); return renderPanel(); }
+  if (D.learn) { if (E.learn(D.learn)) { $('#treeOv .tbox').innerHTML = treeHTML(); refresh(); } return; }
   if (D.bcat) { bcat = D.bcat; sfx.click(); return renderPanel(); }
   if (D.view) { MAP.setView(D.view); sfx.click(); return renderViews(); }
   if (D.sel) { S.sel = +D.sel; if (S.G.phase === 'play' && S.G.d[S.sel].o !== 0) E.tut('look'); MAP.focusOn(S.sel, true); tab = 'z'; return refresh(); }
