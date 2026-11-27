@@ -1,7 +1,7 @@
 // Dinâmica da cidade: histórias com escolhas (vários dias), eventos grandes,
 // objetivos da semana, confiança dos contatos e personalidade dos rivais.
 import {
-  S, R, RI, pick, sum, clamp, fmt, owned, can, msg, log, addXP, addRel, rel, rankName, oname, intelAt, pTroops, emit, addBuf, arrest,
+  S, R, RI, pick, sum, clamp, fmt, owned, can, msg, log, addXP, addRel, rel, rankName, oname, intelAt, pTroops, emit, addBuf, arrest, underdog,
 } from './engine.js';
 
 const zn = i => S.M.z[i].n;
@@ -523,6 +523,8 @@ function objTick(end, rep) {
 // ---------------- relações e rivais ----------------
 function relationTick(rep) {
   const g = S.G;
+  if (underdog() && !g.ud) { g.ud = 1; msg(boss(), T({ policia: 'Comandante, estamos cercados, mas o efetivo fechou com a gente. Enquanto a unidade for pequena, reforço sai mais barato e cada base resiste mais.', mafia: 'Siamo pochi, ma fedeli. Enquanto a família for pequena, todo mundo luta dobrado: recrutar sai mais barato e as nossas casas aguentam mais.', default: 'A gente tá encurralado, mas a rapaziada fechou com nós. Enquanto a gente for pequeno, recrutar sai mais barato e as nossas áreas aguentam mais.' })); log('Resistência: pequeno e encurralado, você recruta mais barato e defende melhor.', 'good'); }
+  if (!underdog() && g.ud && owned(0).length / S.M.N >= .25) g.ud = 0;
   if (g.rent) { g.money += g.rent; g.extra = (g.extra || 0) + g.rent; rep && rep.push(['good', mode() === 'policia' ? 'Convênios' : 'Negócios próprios', '+' + fmt(g.rent)]); }
   if (g.rank >= 2 && rel('braco') <= 20 && Math.random() < .2) { const v = Math.round(g.money * .12); g.money -= v; addRel('braco', 5); log(`Sumiram ${fmt(v)} do caixa. O braço direito anda estranho.`, 'bad'); rep && rep.push(['bad', 'Dinheiro sumido do caixa', '-' + fmt(v)]); }
   if (g.rank < 5 && rel('chefe') >= 85 && Math.random() < .15) { const v = RI(8, 15) * 100; g.money += v; msg('chefe', `Tá fazendo bonito. Toma ${fmt(v)} de agrado.`); }

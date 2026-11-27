@@ -105,7 +105,7 @@ export const beff = (i, k) => sum(bOf(i).map(b => (b.eff[k] || 0) * BLV[lvOf(i, 
 export function defVal(i) {
   const d = S.G.d[i];
   let v = Math.max(.5, d.t) * qOf(d.o) * S.M.dm(i) * (1 + beff(i, 'def'));
-  if (d.o === 0) v *= (.75 + .5 * d.l / 100) * (sk('def') ? 1.2 : 1) * (finOn() && S.G.fin.opt === 'def' ? 1.25 : 1) * (i === S.G.base ? 1.5 * (rel('braco') >= 80 ? 1.2 : 1) : 1);
+  if (d.o === 0) v *= (.75 + .5 * d.l / 100) * (sk('def') ? 1.2 : 1) * (finOn() && S.G.fin.opt === 'def' ? 1.25 : 1) * (underdog() ? 1.2 : 1) * (i === S.G.base ? 1.5 * (rel('braco') >= 80 ? 1.2 : 1) : 1);
   return v;
 }
 export function incOf(i, asOwner = 0) {
@@ -121,10 +121,11 @@ export const maxActs = () => Math.min(6, 3 + Math.floor(owned(0).length / 8) + (
 export const ATK_COST = 2;
 export const truceWith = o => o > 0 && (S.G.f[o - 1].truce || 0) >= S.G.day;
 export const reach = i => { const d = S.G.d[i]; return d.o !== 0 && !truceWith(d.o) && S.M.adj[i].some(j => S.G.d[j].o === 0); };
-export const recruitCost = () => Math.round((sk('rec') ? 450 : 600) * modv('rec') * (1 - Math.min(.25, allEff('rec'))) * (owned(0).filter(i => S.M.type[i] === 'comunidade').length >= 2 ? .85 : 1));
+export const underdog = () => { const g = S.G, n = owned(0).length; return g.day >= 15 && n > 0 && n / S.M.N < .2; };
+export const recruitCost = () => Math.round((sk('rec') ? 450 : 600) * modv('rec') * (underdog() ? .6 : 1) * (1 - Math.min(.25, allEff('rec'))) * (owned(0).filter(i => S.M.type[i] === 'comunidade').length >= 2 ? .85 : 1));
 export const bribeCost = () => Math.round((400 + 20 * S.G.heat) * (hasType('centro', 'capitale') ? .7 : 1) * (1.2 - rel('politico') / 100 * .4));
 export const heatMul = () => (sk('heat') ? .7 : 1) * modv('heat');
-export const pAtkMul = () => (sk('atk') ? 1.15 : 1) * (S.G.perk && S.G.perk.vet ? 1.1 : 1) * (finOn() && S.G.fin.opt === 'atk' ? 1.2 : 1);
+export const pAtkMul = () => (underdog() ? 1.1 : 1) * (sk('atk') ? 1.15 : 1) * (S.G.perk && S.G.perk.vet ? 1.1 : 1) * (finOn() && S.G.fin.opt === 'atk' ? 1.2 : 1);
 export const goal = 1;
 export function intelAt(i) { return owned(0).some(j => (j === i || S.M.adj[j].includes(i)) && beff(j, 'intel') > 0); }
 export const visible = i => S.G.d[i].o === 0 || sk('intel') || (S.G.seen[i] || 0) >= S.G.day || intelAt(i);
@@ -518,7 +519,8 @@ function planFor(o, rep) {
   const pers = o > 0 ? g.f[o - 1].pers : null;
   const fin = finOn() && o > 0;
   const big = o > 0 && owned(o).length / S.M.N >= .35;
-  const tries = big ? 1 : Math.min(pers === 'agressivo' ? 3 : 2, 1 + Math.floor(g.day / 7) + (pers === 'agressivo' ? 1 : 0)) + (fin ? 1 : 0);
+  const t0 = Math.min(pers === 'agressivo' ? 3 : 2, 1 + Math.floor(g.day / 7) + (pers === 'agressivo' ? 1 : 0)) + (fin ? 1 : 0) + (g.day >= 40 ? 1 : 0);
+  const tries = big ? Math.max(1, t0 - 1) : t0;
   const ratio = (pers === 'agressivo' ? 1.15 : pers === 'cauteloso' ? 1.6 : 1.3) ;
   if (o === 0 && g.join != null) {
     const b = g.join, a = S.M.adj[b].filter(j => g.d[j].o === 0).sort((x, y) => g.d[y].t - g.d[x].t)[0];
@@ -546,7 +548,7 @@ function aiEconomy(o) {
   const g = S.G, mine = owned(o); if (!mine.length) { if (o > 0) g.f[o - 1].alive = false; return; }
   if (o > 0) {
     const F = g.f[o - 1], T = sum(mine.map(i => g.d[i].t));
-    F.money += sum(mine.map(i => S.M.val[i])) * .6 / (1 + mine.length / 14) * (mine.length / S.M.N >= .35 ? .7 : 1) + 200 - 7 * T + (finOn() ? 350 : 0);
+    F.money += sum(mine.map(i => S.M.val[i])) * .6 / (1 + mine.length / 14) * (mine.length / S.M.N >= .35 ? .8 : 1) + 200 - 7 * T + (finOn() ? 350 : 0);
     if (F.money > 3000 && F.q < 1.6 && Math.random() < .35) { F.money -= 2500; F.q = Math.min(1.6, F.q + .1); }
     const buy = Math.floor(Math.max(0, F.money - 500) / 60 * (F.pers === 'cauteloso' ? .4 : .3));
     if (buy > 0) { F.money -= buy * 60; distribute(o, buy); }

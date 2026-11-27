@@ -93,6 +93,7 @@ function renderHUD() {
   <div class="stat"><small>${S.MD.heat}</small><div class="bar"><i style="width:${g.heat}%;background:${hc}"></i></div></div>
   ${(() => { const fd = g.fin && g.fin.done, tg = fd ? 100 : Math.round(E.FIN_AT * 100); return `<div class="stat" title="${fd ? 'Domine a cidade inteira para vencer' : 'Ao chegar em ' + tg + '% começa a reta final'}"><small>Domínio ${share}% · meta ${tg}%</small><div class="bar"><i style="width:${Math.min(100, share / tg * 100)}%;background:var(--gold)"></i></div></div>`; })()}
   ${E.jailed() ? `<div class="stat"><small>${S.MD.budget ? 'Afastado' : 'Preso'}</small><strong style="color:var(--bad)">até o dia ${g.jail.until}</strong></div>` : ''}
+  ${E.underdog() ? `<div class="stat" title="Enquanto tiver menos de 20% do mapa: recrutar 40% mais barato, +20% de defesa e +10% de ataque"><small>Resistência</small><strong style="color:var(--ok)">ativa</strong></div>` : ''}
   ${E.finOn() ? `<div class="stat"><small>${esc(FINALS[g.mode].name)}</small><strong style="color:var(--bad)">até o dia ${g.fin.until}</strong></div>` : ''}
   ${g.cev && g.cev.until >= g.day ? `<div class="stat"><small>Evento</small><strong style="color:var(--g1)">${esc(g.cev.name)} · ${g.cev.until - g.day + 1}d</strong></div>` : ''}
   <div class="stat"><small>Ações</small><div class="dots">${Array.from({ length: maxActs() }, (_, k) => `<i class="${k < g.acts ? 'on' : ''}"></i>`).join('')}</div></div>`}</div>
